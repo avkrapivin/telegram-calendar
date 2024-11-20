@@ -14,7 +14,7 @@ public class Main {
         try {
             // Create TelegramBotsApi with new session
             TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
-
+            ////
             // Registration new bot
             botsApi.registerBot(new TelegramCalendar());
             logger.info("Bot is successfully running.");
