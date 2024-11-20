@@ -1,0 +1,6 @@
+target/
+resources/
+.vscode/
+src/main/resources/
+voice.ogg
+tokens/
