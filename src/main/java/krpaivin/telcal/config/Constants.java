@@ -19,7 +19,10 @@ public final class Constants {
 
     public static final String REQUEST_ANALYTICS = "analytics";
     public static final String REQUEST_SEARCH = "search";
+    public static final String REQUEST_AUTHORIZATION = "Authorization";
+    public static final String REQUEST_SET_CALENDAR = "setCalendar";
     public static final String STATE = "_state";
+
     public static final String DATE_TIME_PATTERN = "yyyy-MM-dd HH:mm";
     public static final String DATE_PATTERN = "yyyy.MM.dd";
 }
