@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.GetFile;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -30,18 +32,18 @@ import krpaivin.telcal.chatgpt.TypeGPTRequest;
 import krpaivin.telcal.config.Constants;
 import krpaivin.telcal.config.TelegramBotConfig;
 import krpaivin.telcal.data.UserAuthData;
+import lombok.RequiredArgsConstructor;
 
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.File;
 
+@RequiredArgsConstructor
+@Component
 public class TelegramCalendar extends TelegramLongPollingBot {
 
+    private final UserAuthData userAuthData;
+    private final GoogleCalendarService googleCalendarService;
     private Map<String, String> sessionData = new HashMap<>();
-
-    @SuppressWarnings("deprecation")
-    public TelegramCalendar() {
-        //
-    }
 
     @Override
     public String getBotUsername() {
@@ -228,7 +230,7 @@ public class TelegramCalendar extends TelegramLongPollingBot {
     }
 
     private void processSetCalendar(String messageText, String chatId, String userId) {
-        if (UserAuthData.saveSelectedCalendar(userId, messageText)) {
+        if (userAuthData.saveSelectedCalendar(userId, messageText)) {
             sendResponseMessage(chatId, "Calendar access has been successfully configured.");
         } else {
             sendResponseMessage(chatId, "Error saving calendar data.");
@@ -238,13 +240,13 @@ public class TelegramCalendar extends TelegramLongPollingBot {
 
     private void processAuthorizationRresponse(String messageText, String chatId, String userId) {
         try {
-            GoogleAuthorizationCodeFlow flow = GoogleCalendarService.getGoogleFlow();
+            GoogleAuthorizationCodeFlow flow = googleCalendarService.getGoogleFlow();
             TokenResponse tokenResponse = flow.newTokenRequest(messageText)
                     .setRedirectUri("urn:ietf:wg:oauth:2.0:oob")
                     .execute();
             Credential credential = flow.createAndStoreCredential(tokenResponse, userId);
-            if (UserAuthData.saveTokens(userId, credential)) {
-                HashMap<String, String> calendars = GoogleCalendarService.getAllCalendar(credential);
+            if (userAuthData.saveTokens(userId, credential)) {
+                HashMap<String, String> calendars = googleCalendarService.getAllCalendar(credential);
                 String choiceCalendar = "Copy the calendar ID and send it to the bot\n";
                 for (Entry<String, String> entryHashMap : calendars.entrySet()) {
                     choiceCalendar = choiceCalendar + "id = " + entryHashMap.getKey() + ". name = " + entryHashMap.getValue() + "\n";
@@ -262,7 +264,7 @@ public class TelegramCalendar extends TelegramLongPollingBot {
     }
 
     private void sendAuthorizationRequest(String chatId) {
-        String url = GoogleCalendarService.getUrlForAuthorization();
+        String url = googleCalendarService.getUrlForAuthorization();
         if (!"".equals(url)) {
             sessionData.put(chatId + Constants.STATE, Constants.REQUEST_AUTHORIZATION);
             sendResponseMessage(chatId, "Follow the link, copy the code and send it to the bot");
@@ -358,7 +360,7 @@ public class TelegramCalendar extends TelegramLongPollingBot {
                 DateTimeFormatter.ofPattern(Constants.DATE_TIME_PATTERN));
 
         try {
-            String response = GoogleCalendarService.analyticsEventsByKeyword(startDateTime, endDateTime, keyword, userId);
+            String response = googleCalendarService.analyticsEventsByKeyword(startDateTime, endDateTime, keyword, userId);
             sendResponseMessage(chatId, response);
             sessionData.remove(chatId + Constants.STATE);
         } catch (Exception e) {
@@ -376,7 +378,7 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         SearchType searchType = getSearchTypeFromStr(searchTypeString);
 
         try {
-            String response = GoogleCalendarService.searchEventInCalendar(startDateTime, endDateTime, keyword,
+            String response = googleCalendarService.searchEventInCalendar(startDateTime, endDateTime, keyword,
                     searchType, userId);
             sendResponseMessage(chatId, response);
             sessionData.remove(chatId + Constants.STATE);
@@ -393,7 +395,7 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         LocalDateTime endDateTime = startDateTime.plusMinutes(Long.parseLong(duration));
 
         try {
-            GoogleCalendarService.createGoogleCalendarEvent(description, description, startDateTime, endDateTime, userId);
+            googleCalendarService.createGoogleCalendarEvent(description, description, startDateTime, endDateTime, userId);
             sendResponseMessage(chatId, "Event created in Google Calendar.");
         } catch (Exception e) {
             sendResponseMessage(chatId, "Error creating event.");
