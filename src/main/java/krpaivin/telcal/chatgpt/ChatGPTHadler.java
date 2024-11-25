@@ -15,10 +15,14 @@ import java.time.format.DateTimeFormatter;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.springframework.stereotype.Service;
 
 import krpaivin.telcal.config.Constants;
 import krpaivin.telcal.config.TelegramBotConfig;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
+@Service
 public class ChatGPTHadler {
 
     public String publicGetResponseFromChatGPT(String voiceText, TypeGPTRequest typeGPTRequest) {

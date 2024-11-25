@@ -125,7 +125,8 @@ public class TextHandler {
         "say \"keyword\" followed by the name. If a type search required say it in free format (by default value = all).\n" +
         "4. You can send a request to view analytics for an event in text or audio format. " +
         "Enter period and keyword (optional). In text format: yyyy-MM-dd yyyy-MM-dd Keyword (if you want). " +
-        "In voice format: State the period in free format and if a keyword is required, say \"keyword\" followed by the name.";
+        "In voice format: State the period in free format and if a keyword is required, say \"keyword\" followed by the name." +
+        "5. Bot settings are set at startup (command /start). You can also change the settings using the command /setting";
     }
 
 }

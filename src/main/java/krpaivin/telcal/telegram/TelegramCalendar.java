@@ -8,10 +8,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.GetFile;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -21,9 +19,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import com.google.api.client.auth.oauth2.Credential;
-import com.google.api.client.auth.oauth2.TokenResponse;
-import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
+import com.github.benmanes.caffeine.cache.Cache;
 
 import krpaivin.telcal.calendar.GoogleCalendarService;
 import krpaivin.telcal.calendar.SearchType;
@@ -43,7 +39,10 @@ public class TelegramCalendar extends TelegramLongPollingBot {
 
     private final UserAuthData userAuthData;
     private final GoogleCalendarService googleCalendarService;
-    private Map<String, String> sessionData = new HashMap<>();
+    private final ChatGPTHadler chatGPTHadler;
+    private final Cache<String, String> sessionDataCache;
+
+    //private Map<String, String> sessionData = new HashMap<>(); // переписать на кэш
 
     @Override
     public String getBotUsername() {
@@ -71,39 +70,39 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         String chatId = callbackQuery.getMessage().getChatId().toString();
         String callData = callbackQuery.getData();
         String userId = callbackQuery.getFrom().getUserName();
-        if ("confirm_event".equals(callData)) {
+        if (Constants.BUTTON_CONFIRM_EVENT.equals(callData)) {
             confirmEvent(chatId, userId);
-        } else if ("cancel_event".equals(callData)) {
+        } else if (Constants.BUTTON_CANCEL_EVENT.equals(callData)) {
             cancelEvent(chatId);
+        } else if (Constants.BUTTON_ALL_SETTINGS.equals(callData)) {
+            sendAuthorizationRequest(chatId);
         }
     }
 
     private void cancelEvent(String chatId) {
-        sessionData.remove(chatId);
-        sendResponseMessage(chatId, "Event canceled");
+        //sessionData.remove(chatId);
+        sessionDataCache.invalidate(chatId);
+        sendResponseMessage(chatId, "Operation canceled");
     }
 
     private void confirmEvent(String chatId, String userId) {
         try {
-            String gptResponse = sessionData.get(chatId);
+            //String gptResponse = sessionData.get(chatId);
+            String gptResponse = sessionDataCache.getIfPresent(chatId);
             String[] eventDetails = TextHandler.extractEventDetails(gptResponse); // Extracting event details
             // Create a calendar event with a received data
             createCalendarEvent(eventDetails[0], eventDetails[1], eventDetails[2], eventDetails[3], chatId, userId);
             // Remove session data
-            sessionData.remove(chatId);
         } catch (Exception e) {
             sendResponseMessage(chatId, "Error creating event in calendar.");
         }
+        //sessionData.remove(chatId);
+        sessionDataCache.invalidate(chatId);
     }
 
     private void handleMessage(Message message) {
         String userId = message.getFrom().getUserName();
         String chatId = message.getChatId().toString();
-
-        // if (!isAuthorizedUser(userId)) {
-        //     sendResponseMessage(chatId, "You do not have permission to use the bot.");
-        //     return;
-        // }
 
         if (message.hasText()) {
             // Processing text message
@@ -116,19 +115,23 @@ public class TelegramCalendar extends TelegramLongPollingBot {
 
     private void handleVoiceMessage(Message message, String chatId, String userId) {
 
-        if (Constants.REQUEST_ANALYTICS.equals(sessionData.get(chatId + Constants.STATE))) {
+        //if (Constants.REQUEST_ANALYTICS.equals(sessionData.get(chatId + Constants.STATE))) {
+        if (Constants.REQUEST_ANALYTICS.equals(sessionDataCache.getIfPresent(chatId + Constants.STATE))) {
 
             String[] analyticDetails = extractDetailsFromVoiceAndGPT(message, TypeGPTRequest.ANALYTICS, chatId);
             getAnalyticsFromCalendar(analyticDetails[0], analyticDetails[1], analyticDetails[2], chatId, userId);
 
-        } else if (Constants.REQUEST_SEARCH.equals(sessionData.get(chatId + Constants.STATE))) {
+        //} else if (Constants.REQUEST_SEARCH.equals(sessionData.get(chatId + Constants.STATE))) {
+        } else if (Constants.REQUEST_SEARCH.equals(sessionDataCache.getIfPresent(chatId + Constants.STATE))) {
 
             String[] searchDetails = extractDetailsFromVoiceAndGPT(message, TypeGPTRequest.SEARCH, chatId);
-            getFoundEventFromCalendar(searchDetails[0], searchDetails[1], searchDetails[2], searchDetails[3], chatId, userId);
+            getFoundEventFromCalendar(searchDetails[0], searchDetails[1], searchDetails[2], searchDetails[3], chatId,
+                    userId);
 
         } else {
             String gptResponse = getResponseFromVoiceAndGPT(message, TypeGPTRequest.CREATING_EVENT, chatId);
-            sessionData.put(chatId, gptResponse);
+            //sessionData.put(chatId, gptResponse);
+            sessionDataCache.put(chatId, gptResponse);
             // Send message with response and buttons for confirmation
             sendEventConfirmationMessage(chatId, gptResponse);
         }
@@ -147,7 +150,6 @@ public class TelegramCalendar extends TelegramLongPollingBot {
     }
 
     private String getResponseFromVoiceAndGPT(Message message, TypeGPTRequest typeGPTRequest, String chatId) {
-        ChatGPTHadler chatGPTHadler = new ChatGPTHadler();
         String voiceText = getTextFromTelegramVoice(message, chatId);
         return chatGPTHadler.publicGetResponseFromChatGPT(voiceText, typeGPTRequest);
     }
@@ -167,10 +169,6 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         return result;
     }
 
-    private boolean isAuthorizedUser(String userId) {
-        return userId.equals(TelegramBotConfig.getUserOneId()) || userId.equals(TelegramBotConfig.getUserTwoId());
-    }
-
     public void sendEventConfirmationMessage(String chatId, String eventDetails) {
         // Create buttons
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
@@ -178,11 +176,11 @@ public class TelegramCalendar extends TelegramLongPollingBot {
 
         InlineKeyboardButton confirmButton = new InlineKeyboardButton();
         confirmButton.setText("Confirm");
-        confirmButton.setCallbackData("confirm_event");
+        confirmButton.setCallbackData(Constants.BUTTON_CONFIRM_EVENT);
 
         InlineKeyboardButton cancelButton = new InlineKeyboardButton();
         cancelButton.setText("Cancel");
-        cancelButton.setCallbackData("cancel_event");
+        cancelButton.setCallbackData(Constants.BUTTON_CANCEL_EVENT);
 
         buttons.add(Arrays.asList(confirmButton, cancelButton));
         markup.setKeyboard(buttons);
@@ -212,61 +210,87 @@ public class TelegramCalendar extends TelegramLongPollingBot {
             sendRequestForAnalytics(chatId);
         } else if (messageText.equals("/search")) {
             sendRequestForSearch(chatId);
-        } else if (Constants.REQUEST_ANALYTICS.equals(sessionData.get(chatId + Constants.STATE))) {
+        //} else if (Constants.REQUEST_ANALYTICS.equals(sessionData.get(chatId + Constants.STATE))) {
+        } else if (Constants.REQUEST_ANALYTICS.equals(sessionDataCache.getIfPresent(chatId + Constants.STATE))) {
             processAnalyticsRequest(messageText, chatId, userId);
-        } else if (Constants.REQUEST_SEARCH.equals(sessionData.get(chatId + Constants.STATE))) {
+        //} else if (Constants.REQUEST_SEARCH.equals(sessionData.get(chatId + Constants.STATE))) {
+        } else if (Constants.REQUEST_SEARCH.equals(sessionDataCache.getIfPresent(chatId + Constants.STATE))) {
             processSearchRequest(messageText, chatId, userId);
-        } else if (Constants.REQUEST_AUTHORIZATION.equals(sessionData.get(chatId + Constants.STATE))) {
+        //} else if (Constants.REQUEST_AUTHORIZATION.equals(sessionData.get(chatId + Constants.STATE))) {
+        } else if (Constants.REQUEST_AUTHORIZATION.equals(sessionDataCache.getIfPresent(chatId + Constants.STATE))) {
             processAuthorizationRresponse(messageText, chatId, userId);
-        } else if (Constants.REQUEST_SET_CALENDAR.equals(sessionData.get(chatId + Constants.STATE))) {
+        //} else if (Constants.REQUEST_SET_CALENDAR.equals(sessionData.get(chatId + Constants.STATE))) {
+        } else if (Constants.REQUEST_SET_CALENDAR.equals(sessionDataCache.getIfPresent(chatId + Constants.STATE))) {
             processSetCalendar(messageText, chatId, userId);
         } else if (messageText.equals("/help")) {
             sendHelp(chatId);
         } else if (messageText.equals("/start")) {
             sendAuthorizationRequest(chatId);
+        } else if (messageText.equals("/setting")) {
+            sendSettingRequest(chatId);
         } else {
             processEventCreation(messageText, chatId, userId);
         }
     }
 
+    private void sendChoiceOfSettingsMessage(String chatId) {
+        // Create buttons
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
+
+        InlineKeyboardButton allSettingsButton = new InlineKeyboardButton();
+        allSettingsButton.setText("Confirm");
+        allSettingsButton.setCallbackData(Constants.BUTTON_ALL_SETTINGS);
+
+        InlineKeyboardButton cancelButton = new InlineKeyboardButton();
+        cancelButton.setText("Cancel");
+        cancelButton.setCallbackData(Constants.BUTTON_CANCEL_EVENT);
+
+        buttons.add(Arrays.asList(allSettingsButton, cancelButton));
+        markup.setKeyboard(buttons);
+
+        SendMessage message = new SendMessage(chatId, "Do you want to update all settings?");
+        message.setReplyMarkup(markup);
+
+        try {
+            execute(message);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void sendSettingRequest(String chatId) {
+        sendChoiceOfSettingsMessage(chatId);
+    }
+
     private void processSetCalendar(String messageText, String chatId, String userId) {
+        //sessionData.remove(chatId + Constants.REQUEST_SET_CALENDAR);
+        sessionDataCache.invalidate(chatId + Constants.REQUEST_SET_CALENDAR);
         if (userAuthData.saveSelectedCalendar(userId, messageText)) {
             sendResponseMessage(chatId, "Calendar access has been successfully configured.");
         } else {
             sendResponseMessage(chatId, "Error saving calendar data.");
         }
-        sessionData.remove(chatId + Constants.REQUEST_SET_CALENDAR);
     }
 
     private void processAuthorizationRresponse(String messageText, String chatId, String userId) {
-        try {
-            GoogleAuthorizationCodeFlow flow = googleCalendarService.getGoogleFlow();
-            TokenResponse tokenResponse = flow.newTokenRequest(messageText)
-                    .setRedirectUri("urn:ietf:wg:oauth:2.0:oob")
-                    .execute();
-            Credential credential = flow.createAndStoreCredential(tokenResponse, userId);
-            if (userAuthData.saveTokens(userId, credential)) {
-                HashMap<String, String> calendars = googleCalendarService.getAllCalendar(credential);
-                String choiceCalendar = "Copy the calendar ID and send it to the bot\n";
-                for (Entry<String, String> entryHashMap : calendars.entrySet()) {
-                    choiceCalendar = choiceCalendar + "id = " + entryHashMap.getKey() + ". name = " + entryHashMap.getValue() + "\n";
-                }
-                sessionData.remove(chatId + Constants.REQUEST_AUTHORIZATION);
-                sessionData.put(chatId + Constants.STATE, Constants.REQUEST_SET_CALENDAR);
-                sendResponseMessage(chatId, choiceCalendar);
-            } else {
-                sendResponseMessage(chatId, "Error saving authentication data.");
-            }
-        } catch (IOException e) {
-            sendResponseMessage(chatId, "Error processing authorization response.");
-            sessionData.remove(chatId + Constants.REQUEST_AUTHORIZATION);
+        String choiceCalendar = googleCalendarService.getAccessToCalendar(messageText, userId);
+        //sessionData.remove(chatId + Constants.REQUEST_AUTHORIZATION);
+        sessionDataCache.invalidate(chatId + Constants.REQUEST_AUTHORIZATION);
+        if ("".equals(choiceCalendar) || choiceCalendar.startsWith("Error")) {
+            sendResponseMessage(chatId, choiceCalendar);
+        } else {
+            //sessionData.put(chatId + Constants.STATE, Constants.REQUEST_SET_CALENDAR);
+            sessionDataCache.put(chatId + Constants.STATE, Constants.REQUEST_SET_CALENDAR);
+            sendResponseMessage(chatId, choiceCalendar);
         }
     }
 
     private void sendAuthorizationRequest(String chatId) {
         String url = googleCalendarService.getUrlForAuthorization();
         if (!"".equals(url)) {
-            sessionData.put(chatId + Constants.STATE, Constants.REQUEST_AUTHORIZATION);
+            //sessionData.put(chatId + Constants.STATE, Constants.REQUEST_AUTHORIZATION);
+            sessionDataCache.put(chatId + Constants.STATE, Constants.REQUEST_AUTHORIZATION);
             sendResponseMessage(chatId, "Follow the link, copy the code and send it to the bot");
             sendResponseMessage(chatId, url);
         } else {
@@ -344,27 +368,30 @@ public class TelegramCalendar extends TelegramLongPollingBot {
     }
 
     private void sendRequestForAnalytics(String chatId) {
-        sessionData.put(chatId + Constants.STATE, Constants.REQUEST_ANALYTICS);
-        sendResponseMessage(chatId, "Enter period and keyword (optional)");
+        //sessionData.put(chatId + Constants.STATE, Constants.REQUEST_ANALYTICS);
+        sessionDataCache.put(chatId + Constants.STATE, Constants.REQUEST_ANALYTICS);
+        sendResponseMessage(chatId, "Send message with period and keyword (optional)");
     }
 
     private void sendRequestForSearch(String chatId) {
-        sessionData.put(chatId + Constants.STATE, Constants.REQUEST_SEARCH);
-        sendResponseMessage(chatId, "Enter period, keyword (optional) and type search (optional).");
+        //sessionData.put(chatId + Constants.STATE, Constants.REQUEST_SEARCH);
+        sessionDataCache.put(chatId + Constants.STATE, Constants.REQUEST_SEARCH);
+        sendResponseMessage(chatId, "Send message with period, keyword (optional) and type search (optional).");
     }
 
-    private void getAnalyticsFromCalendar(String startDate, String endDate, String keyword, String chatId, String userId) {
+    private void getAnalyticsFromCalendar(String startDate, String endDate, String keyword, String chatId,
+            String userId) {
         LocalDateTime startDateTime = LocalDateTime.parse(startDate,
                 DateTimeFormatter.ofPattern(Constants.DATE_TIME_PATTERN));
         LocalDateTime endDateTime = LocalDateTime.parse(endDate,
                 DateTimeFormatter.ofPattern(Constants.DATE_TIME_PATTERN));
 
+        //sessionData.remove(chatId + Constants.STATE);
+        sessionDataCache.invalidate(chatId + Constants.STATE);
         try {
             String response = googleCalendarService.analyticsEventsByKeyword(startDateTime, endDateTime, keyword, userId);
             sendResponseMessage(chatId, response);
-            sessionData.remove(chatId + Constants.STATE);
         } catch (Exception e) {
-            sessionData.remove(chatId + Constants.STATE);
             sendResponseMessage(chatId, "Error collecting analytics.");
         }
     }
@@ -377,13 +404,13 @@ public class TelegramCalendar extends TelegramLongPollingBot {
                 DateTimeFormatter.ofPattern(Constants.DATE_TIME_PATTERN));
         SearchType searchType = getSearchTypeFromStr(searchTypeString);
 
+        //sessionData.remove(chatId + Constants.STATE);
+        sessionDataCache.invalidate(chatId + Constants.STATE);
         try {
             String response = googleCalendarService.searchEventInCalendar(startDateTime, endDateTime, keyword,
                     searchType, userId);
             sendResponseMessage(chatId, response);
-            sessionData.remove(chatId + Constants.STATE);
         } catch (Exception e) {
-            sessionData.remove(chatId + Constants.STATE);
             sendResponseMessage(chatId, "Error searching events.");
         }
     }
@@ -395,7 +422,8 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         LocalDateTime endDateTime = startDateTime.plusMinutes(Long.parseLong(duration));
 
         try {
-            googleCalendarService.createGoogleCalendarEvent(description, description, startDateTime, endDateTime, userId);
+            googleCalendarService.createGoogleCalendarEvent(description, description, startDateTime, endDateTime,
+                    userId);
             sendResponseMessage(chatId, "Event created in Google Calendar.");
         } catch (Exception e) {
             sendResponseMessage(chatId, "Error creating event.");
