@@ -15,17 +15,13 @@ import krpaivin.telcal.telegram.TelegramCalendar;
 public class Main {
     private static final Logger logger = Logger.getLogger(Main.class.getName());
     public static void main(String[] args) {
-        //SpringApplication.run(Main.class, args);
         ApplicationContext context = SpringApplication.run(Main.class, args);
         try {
-            // Create TelegramBotsApi with new session
-            //TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
             TelegramCalendar telegramCalendar = context.getBean(TelegramCalendar.class);
             TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
+            
             botsApi.registerBot(telegramCalendar);
 
-            // Registration new bot
-            //botsApi.registerBot(new TelegramCalendar());
             logger.info("Bot is successfully running.");
         } catch (TelegramApiException e) {
             logger.severe("Failed to start bot: " + e.getMessage());

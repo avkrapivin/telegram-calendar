@@ -36,17 +36,17 @@ public class TelegramBotConfig {
         return properties.getProperty("OpenAIKey");
     }
 
-    public static String getCalendarId() {
-        return properties.getProperty("CalendarId");
-    }
+    // public static String getCalendarId() {
+    //     return properties.getProperty("CalendarId");
+    // }
 
-    public static String getUserOneId() {
-        return properties.getProperty("UserOneId");
-    }
+    // public static String getUserOneId() {
+    //     return properties.getProperty("UserOneId");
+    // }
 
-    public static String getUserTwoId() {
-        return properties.getProperty("UserTwoId");
-    }
+    // public static String getUserTwoId() {
+    //     return properties.getProperty("UserTwoId");
+    //}
 
     public static String getAssemblyAIURL() {
         return properties.getProperty("AssemblyAIURL");
