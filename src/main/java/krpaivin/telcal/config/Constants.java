@@ -14,19 +14,25 @@ public final class Constants {
     public static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
     public static final String TOKENS_DIRECTORY_PATH = "tokens";
     public static final List<String> SCOPES = Collections.singletonList(CalendarScopes.CALENDAR);
-    public static final String CREDENTIALS_FILE_PATH = "/credentials.json";
+    public static final String CREDENTIALS_FILE_PATH = "config/credentials.json";
     public static final String GPT_MODEL = "gpt-4o-mini";
 
     public static final String BUTTON_CONFIRM_EVENT = "confirm_event";
     public static final String BUTTON_CANCEL_EVENT = "cancel_event";
     public static final String BUTTON_ALL_SETTINGS = "all_settings";
     public static final String BUTTON_CHANGE_CALENDAR = "change_calendar";
+    public static final String BUTTON_KEYWORDS = "keywords";
+    public static final String BUTTON_DEFAULT_KEYWORD = "default_keyword";
+    public static final String BUTTON_COMPOUND_KEYWORDS = "compound_keywords";
 
     public static final String REQUEST_ANALYTICS = "analytics";
     public static final String REQUEST_SEARCH = "search";
     public static final String REQUEST_AUTHORIZATION = "Authorization";
     public static final String REQUEST_SET_CALENDAR = "setCalendar";
     public static final String REQUEST_SET_SETTING = "setting";
+    public static final String REQUEST_COMPOUND_KEYWORDS = "compound_keywords";
+    public static final String REQUEST_DEFAULT_KEYWORDS = "default_keyword";
+    public static final String REQUEST_KEYWORDS = "keywords";
     public static final String STATE = "_state";
 
     public static final String BD_FIELD_CALENDAR = "_calendar";

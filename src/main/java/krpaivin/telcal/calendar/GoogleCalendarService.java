@@ -45,13 +45,13 @@ public class GoogleCalendarService {
     private final UserAuthData userAuthData;
 
     public void createGoogleCalendarEvent(String summary, String description,
-            LocalDateTime startDateTime, LocalDateTime endDateTime, String userId) throws Exception {
+            LocalDateTime startDateTime, LocalDateTime endDateTime, String userId) throws GeneralSecurityException, IOException {
 
         final NetHttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
         Map<String, String> mapCredentials = userAuthData.getCredentialFromData(userId);
 
         if (mapCredentials == null) {
-            throw new Exception("Error accessing calendar");
+            throw new IllegalStateException("Error accessing calendar");
         }
 
         String calendarId = mapCredentials.get(userId + Constants.BD_FIELD_CALENDAR);
@@ -83,8 +83,7 @@ public class GoogleCalendarService {
     }
 
     private Credential getCredentialWithToken(String userId, final NetHttpTransport httpTransport,
-            Map<String, String> mapCredentials)
-            throws Exception, IOException {
+            Map<String, String> mapCredentials) throws IOException {
 
         String accessToken = mapCredentials.get(userId + Constants.BD_FIELD_ACCESS_TOKEN);
         String refreshToken = mapCredentials.get(userId + Constants.BD_FIELD_REFRESH_TOKEN);
@@ -111,7 +110,7 @@ public class GoogleCalendarService {
     }
 
     public String analyticsEventsByKeyword(LocalDateTime startDateTime, LocalDateTime endDateTime,
-            String keyword, String userId) throws Exception {
+            String keyword, String userId) throws GeneralSecurityException, IOException {
 
         DateTime start = new DateTime(startDateTime.toString() + ":00Z");
         DateTime end = new DateTime(endDateTime.toString() + ":59Z");
@@ -120,7 +119,7 @@ public class GoogleCalendarService {
         Map<String, String> mapCredentials = userAuthData.getCredentialFromData(userId);
 
         if (mapCredentials == null) {
-            throw new Exception("Error accessing calendar");
+            throw new IllegalStateException("Error accessing calendar");
         }
 
         String calendarId = mapCredentials.get(userId + Constants.BD_FIELD_CALENDAR);
@@ -162,7 +161,7 @@ public class GoogleCalendarService {
     }
 
     public String searchEventInCalendar(LocalDateTime startDateTime, LocalDateTime endDateTime,
-            String keyword, SearchType searchType, String userId) throws Exception {
+            String keyword, SearchType searchType, String userId) throws GeneralSecurityException, IOException {
         DateTime start = new DateTime(startDateTime.toString() + ":00Z");
         DateTime end = new DateTime(endDateTime.toString() + ":59Z");
         String result = "Events found: \n";
@@ -171,7 +170,7 @@ public class GoogleCalendarService {
         Map<String, String> mapCredentials = userAuthData.getCredentialFromData(userId);
 
         if (mapCredentials == null) {
-            throw new Exception("Error accessing calendar");
+            throw new IllegalStateException("Error accessing calendar");
         }
 
         String calendarId = mapCredentials.get(userId + Constants.BD_FIELD_CALENDAR);
@@ -210,7 +209,7 @@ public class GoogleCalendarService {
                     break;
                 case ALL:
                     String eventsString = items.stream()
-                            .map(event -> formatEvent(event))
+                            .map(this::formatEvent)
                             .collect(Collectors.joining("\n"));
                     result = result + eventsString;
                     break;
@@ -282,16 +281,14 @@ public class GoogleCalendarService {
             for (CalendarListEntry entry : calendarList.getItems()) {
                 calendars.put(entry.getId(), entry.getSummary());
             }
-        } catch (GeneralSecurityException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
+        } catch (GeneralSecurityException | IOException e) {
             e.printStackTrace();
         }
         return calendars;
     }
 
     public String getAccessToCalendar(String messageText, String userId) {
-        String res = "";
+        StringBuilder res = new StringBuilder();
     
         try {
             GoogleAuthorizationCodeFlow flow = getGoogleFlow();
@@ -302,20 +299,20 @@ public class GoogleCalendarService {
 
             if (userAuthData.saveTokens(userId, credential)) {
                 Map<String, String> calendars = getAllCalendar(credential);
-                res = "Copy the calendar ID and send it to the bot\n";
+                res.append("Copy the calendar ID and send it to the bot\n");
                 for (Entry<String, String> entryHashMap : calendars.entrySet()) {
-                    res = res + "id = " + entryHashMap.getKey() + ". name = "
-                            + entryHashMap.getValue() + "\n";
+                    res.append("id = ").append(entryHashMap.getKey()).append(". name = ")
+                        .append(entryHashMap.getValue()).append("\n");
                 }
             } else {
-                res = "Error saving authentication data.";
+                res.append("Error saving authentication data.");
             }
 
         } catch (IOException e) {
-            res = "Error processing authorization response.";
+            res.append("Error processing authorization response.");
         }
 
-        return res;
+        return res.toString();
     }
 
 }
