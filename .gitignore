@@ -4,3 +4,4 @@ resources/
 src/main/resources/
 voice.ogg
 tokens/
+config.properties

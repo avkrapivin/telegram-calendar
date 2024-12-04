@@ -30,4 +30,13 @@ public class UserData {
 
     @Column(name = "calendar")
     private String calendar;
+
+    @Column(name = "keywords")
+    private String keywords;
+
+    @Column(name = "default_keyword")
+    private String defaultKeyword;
+
+    @Column(name = "compound_keywords")
+    private String compoundKeywords;
 }

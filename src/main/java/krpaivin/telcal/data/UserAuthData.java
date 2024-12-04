@@ -58,6 +58,54 @@ public class UserAuthData {
         return res;
     }
 
+    public boolean saveKeywords(String userId, String messageText) {
+        boolean res = true;
+
+        try {
+            UserData userData = userDataService.getUserDataById(userId).orElse(new UserData());
+            userData.setUserId(userId);
+            userData.setKeywords(messageText.strip());
+            userDataService.saveUserData(userData);
+            userCache.put(userId, userData);
+        } catch (Exception e) {
+            res = false;
+        }
+
+        return res;
+    }
+
+    public boolean saveDefaultKeywords(String userId, String messageText) {
+        boolean res = true;
+
+        try {
+            UserData userData = userDataService.getUserDataById(userId).orElse(new UserData());
+            userData.setUserId(userId);
+            userData.setDefaultKeyword(messageText.strip());
+            userDataService.saveUserData(userData);
+            userCache.put(userId, userData);
+        } catch (Exception e) {
+            res = false;
+        }
+
+        return res;
+    }
+
+    public boolean saveCompoundKeywords(String userId, String messageText) {
+        boolean res = true;
+
+        try {
+            UserData userData = userDataService.getUserDataById(userId).orElse(new UserData());
+            userData.setUserId(userId);
+            userData.setCompoundKeywords(messageText.strip());
+            userDataService.saveUserData(userData);
+            userCache.put(userId, userData);
+        } catch (Exception e) {
+            res = false;
+        }
+
+        return res;
+    }
+
     public Map<String, String> getCredentialFromData(String userId) {
         Map<String, String> hashMap = null;
         UserData userData;
@@ -108,6 +156,42 @@ public class UserAuthData {
         }
 
         return accessToken;
+    }
+
+    public String getKeywords(String userId) {
+        String keywords = "";
+        UserData userData = null;
+
+        userData = getUserFromCache(userId);
+        if (userData != null) {
+            keywords = userData.getKeywords();
+        }
+
+        return keywords;
+    }
+
+    public String getDefaultKeywords(String userId) {
+        String keywords = "";
+        UserData userData = null;
+
+        userData = getUserFromCache(userId);
+        if (userData != null) {
+            keywords = userData.getDefaultKeyword();
+        }
+
+        return keywords;
+    }
+
+    public String getCompoundKeywords(String userId) {
+        String keywords = "";
+        UserData userData = null;
+
+        userData = getUserFromCache(userId);
+        if (userData != null) {
+            keywords = userData.getCompoundKeywords();
+        }
+
+        return keywords;
     }
 
 }

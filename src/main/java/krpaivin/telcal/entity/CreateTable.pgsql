@@ -6,8 +6,10 @@
 -- '1732306908572', 'fead267e46e8638c1d42e135886244a0f57052f085a4bf97f356e84c739d41a9@group.calendar.google.com');
 --SELECT * FROM user_data
 -- ALTER TABLE user_data
--- ADD COLUMN authorization_code TEXT;
---ALTER TABLE user_data DROP COLUMN authorization_code;
+-- ADD COLUMN default_keyword TEXT;
+-- ALTER TABLE user_data
+-- ADD COLUMN compound_keywords TEXT;
+--ALTER TABLE user_data DROP COLUMN default_keywords;
 -- UPDATE user_data
 -- SET calendar = 'fead267e46e8638c1d42e135886244a0f57052f085a4bf97f356e84c739d41a9@group.calendar.google.com'
 -- WHERE user_id = 'Krapivinandrei';
