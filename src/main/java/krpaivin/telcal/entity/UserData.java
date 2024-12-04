@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -16,7 +17,10 @@ import lombok.Setter;
 public class UserData {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "user_id")
+    @Column(name = "id")
+    private Long id;
+
+    @Column(name = "user_id", unique = true, nullable = false)
     private String userId;
 
     @Column(name = "access_token")
@@ -39,4 +43,7 @@ public class UserData {
 
     @Column(name = "compound_keywords")
     private String compoundKeywords;
+
+    @Version
+    private Long version;
 }

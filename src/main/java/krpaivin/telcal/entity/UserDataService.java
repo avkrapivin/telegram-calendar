@@ -16,8 +16,12 @@ public class UserDataService {
         return userDataRepository.save(userData);
     }
 
-    public Optional<UserData> getUserDataById(String userId) {
-        return userDataRepository.findById(userId);
+    public Optional<UserData> getUserDataById(String id) {
+        return userDataRepository.findById(id);
+    }
+
+    public Optional<UserData> getUserDataByUserId(String userId) {
+        return userDataRepository.findByUserId(userId);
     }
 
     public Iterable<UserData> getAllUserData() {

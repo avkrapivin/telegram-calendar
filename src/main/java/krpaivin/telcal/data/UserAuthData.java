@@ -28,7 +28,7 @@ public class UserAuthData {
         long expirationTimeToken = credential.getExpirationTimeMilliseconds();
 
         try {
-            UserData userData = userDataService.getUserDataById(userId).orElse(new UserData());
+            UserData userData = userDataService.getUserDataByUserId(userId).orElse(new UserData());
             userData.setUserId(userId);
             userData.setAccessToken(accessToken);
             userData.setRefreshToken(refreshToken);
@@ -46,7 +46,7 @@ public class UserAuthData {
         boolean res = true;
 
         try {
-            UserData userData = userDataService.getUserDataById(userId).orElse(new UserData());
+            UserData userData = userDataService.getUserDataByUserId(userId).orElse(new UserData());
             userData.setUserId(userId);
             userData.setCalendar(messageText.strip());
             userDataService.saveUserData(userData);
@@ -62,7 +62,7 @@ public class UserAuthData {
         boolean res = true;
 
         try {
-            UserData userData = userDataService.getUserDataById(userId).orElse(new UserData());
+            UserData userData = userDataService.getUserDataByUserId(userId).orElse(new UserData());
             userData.setUserId(userId);
             userData.setKeywords(messageText.strip());
             userDataService.saveUserData(userData);
@@ -78,7 +78,7 @@ public class UserAuthData {
         boolean res = true;
 
         try {
-            UserData userData = userDataService.getUserDataById(userId).orElse(new UserData());
+            UserData userData = userDataService.getUserDataByUserId(userId).orElse(new UserData());
             userData.setUserId(userId);
             userData.setDefaultKeyword(messageText.strip());
             userDataService.saveUserData(userData);
@@ -94,7 +94,7 @@ public class UserAuthData {
         boolean res = true;
 
         try {
-            UserData userData = userDataService.getUserDataById(userId).orElse(new UserData());
+            UserData userData = userDataService.getUserDataByUserId(userId).orElse(new UserData());
             userData.setUserId(userId);
             userData.setCompoundKeywords(messageText.strip());
             userDataService.saveUserData(userData);
@@ -136,7 +136,7 @@ public class UserAuthData {
     private UserData getUserFromDataBase(String userId) {
         UserData userData = null;
         try {
-            Optional<UserData> optionalUserData = userDataService.getUserDataById(userId);
+            Optional<UserData> optionalUserData = userDataService.getUserDataByUserId(userId);
             if (optionalUserData.isPresent()) {
                 userData = optionalUserData.get();
             }
