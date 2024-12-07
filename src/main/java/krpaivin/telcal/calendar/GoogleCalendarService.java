@@ -1,5 +1,6 @@
 package krpaivin.telcal.calendar;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.google.api.client.auth.oauth2.BearerToken;
 import com.google.api.client.auth.oauth2.ClientParametersAuthentication;
 import com.google.api.client.auth.oauth2.Credential;
@@ -17,8 +18,10 @@ import com.google.api.services.calendar.model.EventDateTime;
 import com.google.api.services.calendar.model.Events;
 import com.google.api.services.calendar.model.CalendarList;
 
+import krpaivin.telcal.config.CalendarData;
 import krpaivin.telcal.config.Constants;
 import krpaivin.telcal.config.CredentialsManager;
+import krpaivin.telcal.config.UserCalendar;
 import krpaivin.telcal.data.UserAuthData;
 import lombok.RequiredArgsConstructor;
 
@@ -43,6 +46,7 @@ import org.springframework.stereotype.Service;
 public class GoogleCalendarService {
 
     private final UserAuthData userAuthData;
+    private final Cache<String, UserCalendar> calendarSelectionCache;
 
     public void createGoogleCalendarEvent(String summary, String description,
             LocalDateTime startDateTime, LocalDateTime endDateTime, String userId) throws GeneralSecurityException, IOException {
@@ -288,7 +292,7 @@ public class GoogleCalendarService {
     }
 
     public String getAccessToCalendar(String messageText, String userId) {
-        StringBuilder res = new StringBuilder();
+        String res = "";
     
         try {
             GoogleAuthorizationCodeFlow flow = getGoogleFlow();
@@ -298,21 +302,23 @@ public class GoogleCalendarService {
             Credential credential = flow.createAndStoreCredential(tokenResponse, userId);
 
             if (userAuthData.saveTokens(userId, credential)) {
-                Map<String, String> calendars = getAllCalendar(credential);
-                res.append("Copy the calendar ID and send it to the bot\n");
-                for (Entry<String, String> entryHashMap : calendars.entrySet()) {
-                    res.append("id = ").append(entryHashMap.getKey()).append(". name = ")
-                        .append(entryHashMap.getValue()).append("\n");
+                UserCalendar userCalendar = new UserCalendar();
+                int count = 1;
+                res = "Select a calendar:";
+                Map<String, String> innerListOfCalendar = getAllCalendar(credential);
+                for (Entry<String, String> entryHashMap : innerListOfCalendar.entrySet()) {
+                    userCalendar.getObjects().put(count++, new CalendarData(Map.of(entryHashMap.getKey(), entryHashMap.getValue())));
                 }
+                calendarSelectionCache.put(userId, userCalendar);
             } else {
-                res.append("Error saving authentication data.");
+                res = "Error saving authentication data.";
             }
 
         } catch (IOException e) {
-            res.append("Error processing authorization response.");
+            res = "Error processing authorization response.";
         }
 
-        return res.toString();
+        return res;
     }
 
 }

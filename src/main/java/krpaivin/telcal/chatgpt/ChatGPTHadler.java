@@ -161,7 +161,7 @@ public class ChatGPTHadler {
         String compoundKeywords = userAuthData.getCompoundKeywords(userId);
         StringBuilder res = new StringBuilder();
 
-        res.append("Analyze the text and find 'date', 'time', 'duration', ");
+        res.append("Analyze the text and find 'date', 'start time', 'duration', ");
                 if (!"".equals(keywords) || !"".equals(compoundKeywords)) {
                     res.append(" 'keyword'");    
                 }
@@ -180,6 +180,7 @@ public class ChatGPTHadler {
                 .append("For example: at eight, at ten in the evening, at nineteen zero zero, 10, etc.")
                 .append("If you could not determine the time in the source text, then set the time to 09:00. ")
                 .append("Duration is the number of minutes that indicates how long the event will last. ")
+                .append("If a start and end time are specified, the duration is equal to the difference between them. ")
                 .append("If the duration is missing, it should be equal to 60 minutes. ");
                 if (!"".equals(keywords) || !"".equals(compoundKeywords)) {
                     res.append("The following keywords are possible: ").append(keywords).append(", ")

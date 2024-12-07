@@ -27,4 +27,12 @@ public class CacheConfig {
                 .maximumSize(300)
                 .build();
     }
+
+    @Bean
+    public Cache<String, UserCalendar> calendarSelectionCache() {
+        return Caffeine.newBuilder()
+                .expireAfterAccess(1, TimeUnit.HOURS)
+                .maximumSize(300)
+                .build();
+    }
 }

@@ -16,7 +16,7 @@ public class UserDataService {
         return userDataRepository.save(userData);
     }
 
-    public Optional<UserData> getUserDataById(String id) {
+    public Optional<UserData> getUserDataById(Long id) {
         return userDataRepository.findById(id);
     }
 
@@ -28,11 +28,11 @@ public class UserDataService {
         return userDataRepository.findAll();
     }
 
-    public void deleteUserData(String id) {
+    public void deleteUserData(Long id) {
         userDataRepository.deleteById(id);
     }
 
-    public boolean existsById(String userId) {
+    public boolean existsById(Long userId) {
         return userDataRepository.existsById(userId);
     }
 }
