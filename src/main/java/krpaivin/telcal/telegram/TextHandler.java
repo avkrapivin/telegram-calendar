@@ -115,7 +115,7 @@ public class TextHandler {
         "- search events\n" +
         "- view analytics for events\n\n" +
         "1. For add events using a text message send text in the format: \"Date Time Description\"." +
-        "Where date and time are set in yyyy-MM-dd HH:mm format. For example: 2024-01-31 12.00\n\n" +
+        "Where date and time are set in yyyy-MM-dd HH:mm format. For example: 2024-01-31 12:00 Some description\n\n" +
         "2. For add events using an audio message send audio message in a free format. " +
         "You must somehow specify the start date and description. Optionally, you can " +
         "specify the duration (default is 1 hour) and start time (default is 9.00)" +
@@ -146,8 +146,9 @@ public class TextHandler {
     public static boolean checkFormatAnalyticsRequest(String messageText) {
         boolean res = true;
         String pattern = "\\d{4}-\\d{2}-\\d{2} \\d{4}-\\d{2}-\\d{2} .+$";
+        String patternOnlyDate = "\\d{4}-\\d{2}-\\d{2} \\d{4}-\\d{2}-\\d{2}$";
 
-        if (!Pattern.matches(pattern, messageText)) {
+        if (!Pattern.matches(pattern, messageText) && !Pattern.matches(patternOnlyDate, messageText)) {
             res = false;
         }
 

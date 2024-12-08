@@ -155,6 +155,13 @@ public class GoogleCalendarService {
             DateTime startEvent = event.getStart().getDateTime();
             DateTime endEvent = event.getEnd().getDateTime();
 
+            if (startEvent == null) {
+                startEvent = event.getStart().getDate();
+            }
+            if (endEvent == null) {
+                endEvent = event.getEnd().getDate();
+            }
+
             if (startEvent != null && endEvent != null) {
                 long eventDuration = (endEvent.getValue() - startEvent.getValue()) / (1000 * 60 * 60);
                 totalDuration += eventDuration;
@@ -230,14 +237,29 @@ public class GoogleCalendarService {
 
         DateTime startEvent = event.getStart().getDateTime();
         DateTime endEvent = event.getEnd().getDateTime();
-        LocalDateTime localstartEvent = OffsetDateTime.parse(startEvent.toStringRfc3339()).toLocalDateTime();
+        DateTime startEventAllDay = null;
+        DateTime endEventAllDay = null;
 
-        String start = localstartEvent.format(formatter);
+        if (startEvent == null) {
+            startEventAllDay = event.getStart().getDate();
+        }
 
+        if (endEvent == null) {
+            endEventAllDay = event.getEnd().getDate();
+        }
+
+        String start = "0001.01.01";
         long eventDuration = 0L;
-
+        
         if (startEvent != null && endEvent != null) {
-            eventDuration = (endEvent.getValue() - startEvent.getValue()) / (1000 * 60 * 60);
+            LocalDateTime localstartEvent = OffsetDateTime.parse(startEvent.toStringRfc3339()).toLocalDateTime();
+            start = localstartEvent.format(formatter);
+    
+            if (startEvent != null && endEvent != null) {
+                eventDuration = (endEvent.getValue() - startEvent.getValue()) / (1000 * 60 * 60);
+            }
+        } else if (startEventAllDay != null && endEventAllDay != null) {
+            start = startEventAllDay.toString();
         }
 
         return String.format("Date = %s, Duration = %d, Description = %s", start, eventDuration,

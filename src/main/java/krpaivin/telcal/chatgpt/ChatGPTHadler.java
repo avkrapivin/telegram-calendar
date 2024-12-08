@@ -159,11 +159,14 @@ public class ChatGPTHadler {
         String keywords = userAuthData.getKeywords(userId);
         String defaultKeyword = userAuthData.getDefaultKeywords(userId);
         String compoundKeywords = userAuthData.getCompoundKeywords(userId);
+        boolean keywordExists = false;
         StringBuilder res = new StringBuilder();
 
         res.append("Analyze the text and find 'date', 'start time', 'duration', ");
-                if (!"".equals(keywords) || !"".equals(compoundKeywords)) {
-                    res.append(" 'keyword'");    
+                if ((keywords != null && !"".equals(keywords)) 
+                    || (compoundKeywords != null && !"".equals(compoundKeywords))) {
+                    res.append(" 'keyword'");
+                    keywordExists = true;    
                 }
                 res.append(" with a 'description'. ")
                 .append("If the year is not specified in the source text, then set the current year. ")
@@ -182,18 +185,23 @@ public class ChatGPTHadler {
                 .append("Duration is the number of minutes that indicates how long the event will last. ")
                 .append("If a start and end time are specified, the duration is equal to the difference between them. ")
                 .append("If the duration is missing, it should be equal to 60 minutes. ");
-                if (!"".equals(keywords) || !"".equals(compoundKeywords)) {
-                    res.append("The following keywords are possible: ").append(keywords).append(", ")
-                        .append(compoundKeywords).append(". ");
+                if (keywordExists) {
+                    res.append("The following keywords are possible: ");
                 }
-                if (!"".equals(compoundKeywords)) {
+                if (keywords != null && !"".equals(keywords)) {
+                    res.append(keywords).append(", ");
+                }
+                if (compoundKeywords != null && !"".equals(compoundKeywords)) {
+                    res.append(compoundKeywords).append(". ");
+                }
+                if (compoundKeywords != null && !"".equals(compoundKeywords)) {
                     String[] arrayString = compoundKeywords.split(",");
                     for (String str : arrayString) {
                         res.append("If the original text contains together the words ").append(str).append(", ")
                             .append("then consider it one keyword. ");    
                     }
                 }
-                if (!"".equals(defaultKeyword)) {
+                if (defaultKeyword != null && !"".equals(defaultKeyword)) {
                     res.append("If there is no keyword, then you need to install keyword equals ")
                         .append(defaultKeyword).append(". ");
                 }

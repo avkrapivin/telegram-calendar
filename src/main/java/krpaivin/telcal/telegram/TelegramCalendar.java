@@ -91,6 +91,7 @@ public class TelegramCalendar extends TelegramLongPollingBot {
 
     private void cancelEvent(String chatId) {
         sessionDataCache.invalidate(chatId);
+        sessionDataCache.invalidate(chatId + Constants.STATE);
         sendResponseMessage(chatId, "Operation canceled");
     }
 
