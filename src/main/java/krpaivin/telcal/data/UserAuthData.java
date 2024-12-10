@@ -194,4 +194,22 @@ public class UserAuthData {
         return keywords;
     }
 
+    public boolean clearAllKeywords(String userId) {
+        boolean res = true;
+
+        try {
+            UserData userData = userDataService.getUserDataByUserId(userId).orElse(new UserData());
+            userData.setUserId(userId);
+            userData.setCompoundKeywords(null);
+            userData.setDefaultKeyword(null);
+            userData.setKeywords(null);
+            userDataService.saveUserData(userData);
+            userCache.put(userId, userData);
+        } catch (Exception e) {
+            res = false;
+        }
+
+        return res;
+    }
+
 }

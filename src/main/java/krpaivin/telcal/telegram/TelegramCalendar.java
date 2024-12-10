@@ -69,8 +69,15 @@ public class TelegramCalendar extends TelegramLongPollingBot {
     private void handleCallbackQuery(Update update) {
         CallbackQuery callbackQuery = update.getCallbackQuery();
         String chatId = callbackQuery.getMessage().getChatId().toString();
-        String callData = callbackQuery.getData();
         String userId = callbackQuery.getFrom().getUserName();
+
+        if (TelegramBotConfig.getMaintenanceMode().equals("true")
+            && !userId.equals(TelegramBotConfig.getUserOneId())) {
+            sendResponseMessage(chatId, "Sorry, the bot is temporarily unavailable due to technical work. Try again later");
+            return;
+        }
+
+        String callData = callbackQuery.getData();
         if (Constants.BUTTON_CONFIRM_EVENT.equals(callData)) {
             confirmEvent(chatId, userId);
         } else if (Constants.BUTTON_CANCEL_EVENT.equals(callData)) {
@@ -83,6 +90,8 @@ public class TelegramCalendar extends TelegramLongPollingBot {
             sendSetDefaultKeywordsRequest(chatId);
         } else if (Constants.BUTTON_COMPOUND_KEYWORDS.equals(callData)) {
             sendSetCompoundKeywordsRequest(chatId);
+        } else if (Constants.BUTTON_CLEAR_ALL_KEYWORDS.equals(callData)) {
+            clearAllKeywordsRequest(chatId, userId);
         } else if (callData != null && callData.length() >= 9
                 && "Calendar/".equals(callData.substring(0, 9))) {
             setUserCalendar(chatId, userId, callData);
@@ -111,6 +120,12 @@ public class TelegramCalendar extends TelegramLongPollingBot {
     private void handleMessage(Message message) {
         String userId = message.getFrom().getUserName();
         String chatId = message.getChatId().toString();
+
+        if (TelegramBotConfig.getMaintenanceMode().equals("true")
+            && !userId.equals(TelegramBotConfig.getUserOneId())) {
+            sendResponseMessage(chatId, "Sorry, the bot is temporarily unavailable due to technical work. Try again later");
+            return;
+        }
 
         if (message.hasText()) {
             // Processing text message
@@ -268,8 +283,13 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         compoundKeywordsButton.setText("Compound keywords");
         compoundKeywordsButton.setCallbackData(Constants.BUTTON_COMPOUND_KEYWORDS);
 
+        InlineKeyboardButton clearAllKeywordsButton = new InlineKeyboardButton();
+        clearAllKeywordsButton.setText("Clear all keywords");
+        clearAllKeywordsButton.setCallbackData(Constants.BUTTON_CLEAR_ALL_KEYWORDS);
+
         buttons.add(Arrays.asList(allSettingsButton, cancelButton));
         buttons.add(Arrays.asList(keywordsButton, defaultKeywordButton, compoundKeywordsButton));
+        buttons.add(Arrays.asList(clearAllKeywordsButton));
         markup.setKeyboard(buttons);
 
         SendMessage message = new SendMessage(chatId, "What settings do you want to set?");
@@ -393,6 +413,14 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    private void clearAllKeywordsRequest(String chatId, String userId) {
+        if (userAuthData.clearAllKeywords(userId)) {
+            sendResponseMessage(chatId, "All keywords were successfully cleaned.");
+        } else {
+            sendResponseMessage(chatId, "Error cleaning keywords.");
+        }
+    }
+
     private void sendAuthorizationRequest(String chatId) {
         String url = googleCalendarService.getUrlForAuthorization();
         if (!"".equals(url)) {
@@ -411,6 +439,8 @@ public class TelegramCalendar extends TelegramLongPollingBot {
 
     private void processSearchRequest(String messageText, String chatId, String userId) {
         // Format of the message "yyyy-MM-dd / yyyy-MM-dd / TypeSearch / Keyword"
+        messageText = chatGPTHadler.publicGetResponseFromChatGPT(messageText, TypeGPTRequest.SEARCH_TEXT, userId);
+        
         boolean isTrueFormat = TextHandler.checkFormatSearchRequest(messageText);
 
         if (isTrueFormat) {
@@ -420,16 +450,26 @@ public class TelegramCalendar extends TelegramLongPollingBot {
                 String endDate = parts[1] + " 23:59";
                 String keyword = "";
                 String searchType = "all";
-                if (parts.length == 3) {
-                    String str = parts[2];
-                    if (!"first".equals(str) && !"last".equals(str) && !"all".equals(str)) {
-                        searchType = "all";
-                        keyword = str;
+                if (parts.length == 4) {
+                    String strKeyword = parts[2].trim();
+                    if (!strKeyword.equals("")) {
+                        keyword = strKeyword;
                     }
-                } else if (parts.length == 4) {
-                    keyword = parts[2];
-                    searchType = parts[3];
+                    String strSearchType = parts[3].trim();
+                    if (!strSearchType.equals("")) {
+                        searchType = strSearchType;
+                    }
                 }
+                // if (parts.length == 3) {
+                //     String str = parts[2].trim();
+                //     if (!"first".equals(str) && !"last".equals(str) && !"all".equals(str) && !str.equals("")) {
+                //         searchType = "all";
+                //         keyword = str;
+                //     }
+                // } else if (parts.length == 4 && !parts[2].trim().equals("") && !parts[3].trim().equals("")) {
+                //     keyword = parts[2];
+                //     searchType = parts[3];
+                // }
                 getFoundEventFromCalendar(startDate, endDate, searchType, keyword, chatId, userId);
             } else {
                 sendResponseMessage(chatId, "Incorrect message format.");
@@ -455,6 +495,7 @@ public class TelegramCalendar extends TelegramLongPollingBot {
 
     private void processEventCreation(String messageText, String chatId, String userId) {
         // Format of the message "Date Time Description"
+        messageText = chatGPTHadler.publicGetResponseFromChatGPT(messageText, TypeGPTRequest.CREATING_EVENT_TEXT, userId);
         boolean isTrueFormat = TextHandler.checkFormatEventCreation(messageText);
 
         if (isTrueFormat) {
@@ -474,14 +515,15 @@ public class TelegramCalendar extends TelegramLongPollingBot {
 
     private void processAnalyticsRequest(String messageText, String chatId, String userId) {
         // Format of the message "yyyy-MM-dd yyyy-MM-dd Keyword"
-        boolean isTrueFormat = TextHandler.checkFormatAnalyticsRequest(messageText);
+        messageText = chatGPTHadler.publicGetResponseFromChatGPT(messageText, TypeGPTRequest.ANALYTICS_TEXT, userId);
+        boolean isTrueFormat = TextHandler.checkFormatAnalyticsRequest(messageText.trim());
 
         if (isTrueFormat) {
             String[] parts = messageText.split(" ", 3);
             if (parts.length >= 2) {
                 String startDate = parts[0] + " 00:00";
                 String endDate = parts[1] + " 23:59";
-                String keyword = (parts.length == 3) ? parts[2] : "";
+                String keyword = (parts.length == 3 && !parts[2].trim().equals("")) ? parts[2] : "";
                 getAnalyticsFromCalendar(startDate, endDate, keyword, chatId, userId);
             } else {
                 sendResponseMessage(chatId, "Incorrect message format.");
@@ -583,10 +625,11 @@ public class TelegramCalendar extends TelegramLongPollingBot {
             execute(message); // Sending a message
         } catch (TelegramApiException e) {
             // if (e.getMessage().contains("bot was blocked by the user")) {
-            //     System.out.println("Пользователь заблокировал бота. ID пользователя: " + userId);
+            // System.out.println("Пользователь заблокировал бота. ID пользователя: " +
+            // userId);
             // } else {
-                e.printStackTrace();
-            //}
+            e.printStackTrace();
+            // }
         }
     }
 

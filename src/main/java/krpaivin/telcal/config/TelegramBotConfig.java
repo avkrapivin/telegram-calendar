@@ -44,8 +44,12 @@ public class TelegramBotConfig {
         return properties.getProperty("OpenAIURL");
     }
 
-    // public static String getUserOneId() {
-    //     return properties.getProperty("UserOneId");
-    // }
+    public static String getMaintenanceMode() {
+        return properties.getProperty("maintenance.mode", "false");
+    }
+
+    public static String getUserOneId() {
+        return properties.getProperty("UserOneId");
+    }
     
 }

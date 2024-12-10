@@ -49,6 +49,12 @@ public class ChatGPTHadler {
                 prompt = getInstructionsForAnalytics(voiceText);
             } else if (typeGPTRequest == TypeGPTRequest.SEARCH) {
                 prompt = getInstructionsForSearch(voiceText);
+            } else if (typeGPTRequest == TypeGPTRequest.CREATING_EVENT_TEXT) {
+                prompt = getInstructionsForCreatingCalendarFromText(voiceText);
+            } else if (typeGPTRequest == TypeGPTRequest.ANALYTICS_TEXT) {
+                prompt = getInstructionsForAnalyticsFromText(voiceText);
+            } else if (typeGPTRequest == TypeGPTRequest.SEARCH_TEXT) {
+                prompt = getInstructionsForSearchFromText(voiceText);
             } else {
                 throw new IOException("Unknown request type to ChatGPT.");
             }
@@ -208,6 +214,43 @@ public class ChatGPTHadler {
                 res.append("Description - what comes immediately after the keyword. ")
                 .append("Please answer strictly in the format: 'yyyy-MM-dd HH:mm / Duration=mm / Keyword. Description'. ")
                 .append("Here is the source text: ").append(voiceText);
+        return res.toString();
+    }
+
+    private String getInstructionsForCreatingCalendarFromText(String text) {
+        StringBuilder res = new StringBuilder();
+        res.append("Analyze the source text. Find the date, time, and description. ")
+            .append("The date and time can be specified in a free format. ")
+            .append("The description is the rest of the text. Format the source text ")
+            .append("and output it in the following format: yyyy-MM-dd HH:mm Description. ")
+            .append("If the date is not specified in the source text, output: Error. Date is not specified. ")
+            .append("If the time is not specified in the source text, output: Error. Time is not specified. ")
+            .append("If the description is missing in the source text, output: Error. Description is not specified. ")
+            .append("Here is the source text: " + text);
+        return res.toString();
+    }
+
+    private String getInstructionsForAnalyticsFromText(String text) {
+        StringBuilder res = new StringBuilder();
+        res.append("Analyze the source text. Find the start date, end date, and description. ")
+            .append("Dates can be specified in a free format. The description is the rest of the text. ")
+            .append("Format the source text and output it in the following format: yyyy-MM-dd yyyy-MM-dd Description. ")
+            .append("The description may be missing. ")
+            //.append("If the source text does not have a start date and/or end date, output: Error. No date specified. ")
+            .append("Here is the source text: " + text);
+        return res.toString();
+    }
+
+    private String getInstructionsForSearchFromText(String text) {
+        StringBuilder res = new StringBuilder();
+        res.append("Analyze the source text. Find the start date, end date, search type, and description. ")
+            .append("Dates can be specified in a free format. The search type can take ")
+            .append("the following values: first/last/all. Search type may be missing. ")
+            .append("Description - arbitrary text. Description may be missing. ")
+            .append("Format the source text and output it in the following ")
+            .append("format: yyyy-MM-dd / yyyy-MM-dd / Description / Search type.")
+            //.append("If the source text does not have a start date and/or end date, output equal: Error. Date not specified. ")
+            .append("Here is the source text: " + text);
         return res.toString();
     }
 

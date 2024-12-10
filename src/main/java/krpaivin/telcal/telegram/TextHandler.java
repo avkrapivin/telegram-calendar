@@ -115,7 +115,7 @@ public class TextHandler {
         "- search events\n" +
         "- view analytics for events\n\n" +
         "1. For add events using a text message send text in the format: \"Date Time Description\"." +
-        "Where date and time are set in yyyy-MM-dd HH:mm format. For example: 2024-01-31 12:00 Some description\n\n" +
+        "Where date and time are set in dd.MM.yyyy HH:mm format. For example: 31.01.2024 12:00 Some description\n\n" +
         "2. For add events using an audio message send audio message in a free format. " +
         "You must somehow specify the start date and description. Optionally, you can " +
         "specify the duration (default is 1 hour) and start time (default is 9.00)" +
@@ -123,11 +123,11 @@ public class TextHandler {
         "or say the word 'duration' (any language) followed by the duration (e.g., \"duration two hours\").\n\n" +
         "3. You can send a request to search for an event in text or audio format. " +
         "Required period, keyword (optional) and type search (optional, value: first/last/all). " +
-        "In text format: yyyy-MM-dd / yyyy-MM-dd / Keyword / TypeSearch (Value: first/last/all). " +
+        "In text format: dd.MM.yyyy / dd.MM.yyyy / Keyword / TypeSearch (Value: first/last/all). " +
         "In voice format: State the period in free format. If a keyword is required, " +
         "say in any language \"keyword\" followed by the name. If a type search required say it in free format (by default value = all).\n\n" +
         "4. You can send a request to view analytics for an event in text or audio format. " +
-        "Enter period and keyword (optional). In text format: yyyy-MM-dd yyyy-MM-dd Keyword (if you want). " +
+        "Enter period and keyword (optional). In text format: dd.MM.yyyy dd.MM.yyyy Keyword (if you want). " +
         "In voice format: State the period in free format and if a keyword is required, say \"keyword\" followed by the name." +
         "5. Bot settings are set at startup (command /start). You can also change the settings using the command /setting";
     }
@@ -145,8 +145,8 @@ public class TextHandler {
 
     public static boolean checkFormatAnalyticsRequest(String messageText) {
         boolean res = true;
-        String pattern = "\\d{4}-\\d{2}-\\d{2} \\d{4}-\\d{2}-\\d{2} .+$";
-        String patternOnlyDate = "\\d{4}-\\d{2}-\\d{2} \\d{4}-\\d{2}-\\d{2}$";
+        String pattern = "(\\d{4}-\\d{2}-\\d{2}) (\\d{4}-\\d{2}-\\d{2}) (.+)$";
+        String patternOnlyDate = "(\\d{4}-\\d{2}-\\d{2}) (\\d{4}-\\d{2}-\\d{2})$";
 
         if (!Pattern.matches(pattern, messageText) && !Pattern.matches(patternOnlyDate, messageText)) {
             res = false;

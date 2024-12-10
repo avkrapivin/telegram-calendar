@@ -24,6 +24,7 @@ public final class Constants {
     public static final String BUTTON_KEYWORDS = "keywords";
     public static final String BUTTON_DEFAULT_KEYWORD = "default_keyword";
     public static final String BUTTON_COMPOUND_KEYWORDS = "compound_keywords";
+    public static final String BUTTON_CLEAR_ALL_KEYWORDS = "clear_all_keywords";
 
     public static final String REQUEST_ANALYTICS = "analytics";
     public static final String REQUEST_SEARCH = "search";
