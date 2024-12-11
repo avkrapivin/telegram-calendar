@@ -2,7 +2,8 @@ package krpaivin.telcal.data;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 import org.springframework.stereotype.Service;
 
@@ -21,89 +22,55 @@ public class UserAuthData {
     private final UserDataService userDataService;
     private final Cache<String, UserData> userCache;
 
-    public boolean saveTokens(String userId, Credential credential) {
+    private boolean updateUserData(String userId, UnaryOperator<UserData> updater) {
         boolean res = true;
-        String accessToken = credential.getAccessToken();
-        String refreshToken = credential.getRefreshToken();
-        long expirationTimeToken = credential.getExpirationTimeMilliseconds();
-
         try {
             UserData userData = userDataService.getUserDataByUserId(userId).orElse(new UserData());
             userData.setUserId(userId);
-            userData.setAccessToken(accessToken);
-            userData.setRefreshToken(refreshToken);
-            userData.setExpirationTimeToken(String.valueOf(expirationTimeToken));
+            userData = updater.apply(userData);
             userDataService.saveUserData(userData);
             userCache.put(userId, userData);
         } catch (Exception e) {
             res = false;
         }
-
         return res;
+    }
+
+    public boolean saveTokens(String userId, Credential credential) {
+        return updateUserData(userId, userData -> {
+            userData.setAccessToken(credential.getAccessToken());
+            userData.setRefreshToken(credential.getRefreshToken());
+            userData.setExpirationTimeToken(String.valueOf(credential.getExpirationTimeMilliseconds()));
+            return userData;
+        });
     }
 
     public boolean saveSelectedCalendar(String userId, String messageText) {
-        boolean res = true;
-
-        try {
-            UserData userData = userDataService.getUserDataByUserId(userId).orElse(new UserData());
-            userData.setUserId(userId);
+        return updateUserData(userId, userData -> {
             userData.setCalendar(messageText.strip());
-            userDataService.saveUserData(userData);
-            userCache.put(userId, userData);
-        } catch (Exception e) {
-            res = false;
-        }
-
-        return res;
+            return userData;
+        });
     }
 
     public boolean saveKeywords(String userId, String messageText) {
-        boolean res = true;
-
-        try {
-            UserData userData = userDataService.getUserDataByUserId(userId).orElse(new UserData());
-            userData.setUserId(userId);
+        return updateUserData(userId, userData -> {
             userData.setKeywords(messageText.strip());
-            userDataService.saveUserData(userData);
-            userCache.put(userId, userData);
-        } catch (Exception e) {
-            res = false;
-        }
-
-        return res;
+            return userData;
+        });
     }
 
     public boolean saveDefaultKeywords(String userId, String messageText) {
-        boolean res = true;
-
-        try {
-            UserData userData = userDataService.getUserDataByUserId(userId).orElse(new UserData());
-            userData.setUserId(userId);
+        return updateUserData(userId, userData -> {
             userData.setDefaultKeyword(messageText.strip());
-            userDataService.saveUserData(userData);
-            userCache.put(userId, userData);
-        } catch (Exception e) {
-            res = false;
-        }
-
-        return res;
+            return userData;
+        });
     }
 
     public boolean saveCompoundKeywords(String userId, String messageText) {
-        boolean res = true;
-
-        try {
-            UserData userData = userDataService.getUserDataByUserId(userId).orElse(new UserData());
-            userData.setUserId(userId);
+        return updateUserData(userId, userData -> {
             userData.setCompoundKeywords(messageText.strip());
-            userDataService.saveUserData(userData);
-            userCache.put(userId, userData);
-        } catch (Exception e) {
-            res = false;
-        }
-
-        return res;
+            return userData;
+        });
     }
 
     public Map<String, String> getCredentialFromData(String userId) {
@@ -134,82 +101,37 @@ public class UserAuthData {
     }
 
     private UserData getUserFromDataBase(String userId) {
-        UserData userData = null;
-        try {
-            Optional<UserData> optionalUserData = userDataService.getUserDataByUserId(userId);
-            if (optionalUserData.isPresent()) {
-                userData = optionalUserData.get();
-            }
-        } catch (Exception e) {
-            //
-        }
-        return userData;
+        return userDataService.getUserDataByUserId(userId).orElse(null);
+    }
+
+    private <T> T getFieldFromCache(String userId, Function<UserData, T> extractor, T defaultValue) {
+        UserData userData = getUserFromCache(userId);
+        return userData != null ? extractor.apply(userData) : defaultValue;
     }
 
     public String getAccessToken(String userId) {
-        String accessToken = "";
-        UserData userData = null;
-
-        userData = getUserFromCache(userId);
-        if (userData != null) {
-            accessToken = userData.getAccessToken();
-        }
-
-        return accessToken;
+        return getFieldFromCache(userId, UserData::getAccessToken, "");
     }
 
     public String getKeywords(String userId) {
-        String keywords = "";
-        UserData userData = null;
-
-        userData = getUserFromCache(userId);
-        if (userData != null) {
-            keywords = userData.getKeywords();
-        }
-
-        return keywords;
+        return getFieldFromCache(userId, UserData::getKeywords, "");
     }
 
     public String getDefaultKeywords(String userId) {
-        String keywords = "";
-        UserData userData = null;
-
-        userData = getUserFromCache(userId);
-        if (userData != null) {
-            keywords = userData.getDefaultKeyword();
-        }
-
-        return keywords;
+        return getFieldFromCache(userId, UserData::getDefaultKeyword, "");
     }
 
     public String getCompoundKeywords(String userId) {
-        String keywords = "";
-        UserData userData = null;
-
-        userData = getUserFromCache(userId);
-        if (userData != null) {
-            keywords = userData.getCompoundKeywords();
-        }
-
-        return keywords;
+        return getFieldFromCache(userId, UserData::getCompoundKeywords, "");
     }
 
     public boolean clearAllKeywords(String userId) {
-        boolean res = true;
-
-        try {
-            UserData userData = userDataService.getUserDataByUserId(userId).orElse(new UserData());
-            userData.setUserId(userId);
+        return updateUserData(userId, userData -> {
             userData.setCompoundKeywords(null);
             userData.setDefaultKeyword(null);
             userData.setKeywords(null);
-            userDataService.saveUserData(userData);
-            userCache.put(userId, userData);
-        } catch (Exception e) {
-            res = false;
-        }
-
-        return res;
+            return userData;
+        });
     }
 
 }

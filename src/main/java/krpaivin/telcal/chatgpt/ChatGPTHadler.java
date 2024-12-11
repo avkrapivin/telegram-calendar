@@ -171,10 +171,10 @@ public class ChatGPTHadler {
         res.append("Analyze the text and find 'date', 'start time', 'duration', ");
                 if ((keywords != null && !"".equals(keywords)) 
                     || (compoundKeywords != null && !"".equals(compoundKeywords))) {
-                    res.append(" 'keyword'");
+                    res.append(" 'keyword', ");
                     keywordExists = true;    
                 }
-                res.append(" with a 'description'. ")
+                res.append(" 'description'. ")
                 .append("If the year is not specified in the source text, then set the current year. ")
                 .append("The month can be specified as a number or a word. ")
                 .append("The date can be specified in free form. ")
@@ -211,8 +211,15 @@ public class ChatGPTHadler {
                     res.append("If there is no keyword, then you need to install keyword equals ")
                         .append(defaultKeyword).append(". ");
                 }
-                res.append("Description - what comes immediately after the keyword. ")
-                .append("Please answer strictly in the format: 'yyyy-MM-dd HH:mm / Duration=mm / Keyword. Description'. ")
+                res.append(". 'Description' is the remaining text without date and duration. ")
+                // .append("If there is no keyword in the source text, then answer strictly ")
+                // .append("in the format: 'yyyy-MM-dd HH:mm / Duration=mm / Description'. ")
+                // .append("There is no need to display the word 'Description'. ")
+                .append("If there is a keyword in the source text, then ")
+                .append("answer in the format: 'yyyy-MM-dd HH:mm / Duration=mm / Keyword. Description'.")
+                .append("If there is no keyword in the source text, then ")
+                .append("answer another format: 'yyyy-MM-dd HH:mm / Duration=mm / Description'. ")
+                .append("There is no need to display the word 'Description'. ")
                 .append("Here is the source text: ").append(voiceText);
         return res.toString();
     }

@@ -123,7 +123,7 @@ public class TextHandler {
         "or say the word 'duration' (any language) followed by the duration (e.g., \"duration two hours\").\n\n" +
         "3. You can send a request to search for an event in text or audio format. " +
         "Required period, keyword (optional) and type search (optional, value: first/last/all). " +
-        "In text format: dd.MM.yyyy / dd.MM.yyyy / Keyword / TypeSearch (Value: first/last/all). " +
+        "In text format: dd.MM.yyyy dd.MM.yyyy Keyword TypeSearch (Value: first/last/all). " +
         "In voice format: State the period in free format. If a keyword is required, " +
         "say in any language \"keyword\" followed by the name. If a type search required say it in free format (by default value = all).\n\n" +
         "4. You can send a request to view analytics for an event in text or audio format. " +

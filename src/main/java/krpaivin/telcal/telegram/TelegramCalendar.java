@@ -448,28 +448,22 @@ public class TelegramCalendar extends TelegramLongPollingBot {
             if (parts.length >= 2) {
                 String startDate = parts[0] + " 00:00";
                 String endDate = parts[1] + " 23:59";
-                String keyword = "";
-                String searchType = "all";
-                if (parts.length == 4) {
-                    String strKeyword = parts[2].trim();
-                    if (!strKeyword.equals("")) {
-                        keyword = strKeyword;
-                    }
-                    String strSearchType = parts[3].trim();
-                    if (!strSearchType.equals("")) {
-                        searchType = strSearchType;
-                    }
-                }
-                // if (parts.length == 3) {
-                //     String str = parts[2].trim();
-                //     if (!"first".equals(str) && !"last".equals(str) && !"all".equals(str) && !str.equals("")) {
-                //         searchType = "all";
-                //         keyword = str;
+                // String keyword = "";
+                // String searchType = "all";
+                // if (parts.length == 4) {
+                //     String strKeyword = parts[2].trim();
+                //     if (!strKeyword.equals("")) {
+                //         keyword = strKeyword;
                 //     }
-                // } else if (parts.length == 4 && !parts[2].trim().equals("") && !parts[3].trim().equals("")) {
-                //     keyword = parts[2];
-                //     searchType = parts[3];
+                //     String strSearchType = parts[3].trim();
+                //     if (!strSearchType.equals("")) {
+                //         searchType = strSearchType;
+                //     }
                 // }
+                String keyword = parts.length >= 3 ? parts[2].trim() : "";
+                String searchType = parts.length == 4 ? parts[3].trim() : "all";
+                searchType = searchType.isEmpty() ? "all" : searchType;
+
                 getFoundEventFromCalendar(startDate, endDate, searchType, keyword, chatId, userId);
             } else {
                 sendResponseMessage(chatId, "Incorrect message format.");
