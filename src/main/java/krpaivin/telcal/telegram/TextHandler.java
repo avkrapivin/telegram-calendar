@@ -172,4 +172,17 @@ public class TextHandler {
         return res;
     }
 
+    public static String getSearchMessageForResponse(String[] searchDetails) {
+        String[] startDate = searchDetails[0].split(" ");
+        String[] endDate = searchDetails[1].split(" ");
+        return "Your request: Start date: " + startDate[0] + " / End date: " + endDate[0] 
+            + " / Search type = " + searchDetails[2] + " / Keyword = " + searchDetails[3];
+    }
+
+    public static String getAnalyticsMessageForResponse(String[] analyticDetails) {
+        String[] startDate = analyticDetails[0].split(" ");
+        String[] endDate = analyticDetails[1].split(" ");
+        return "Your request: Start date: " + startDate[0] + " / End date: " + endDate[0] + " / Keyword = " + analyticDetails[2];
+    }
+
 }

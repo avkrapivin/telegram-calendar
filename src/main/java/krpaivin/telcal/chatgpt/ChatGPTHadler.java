@@ -16,11 +16,12 @@ import java.time.format.DateTimeFormatter;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.springframework.stereotype.Service;
+import lombok.RequiredArgsConstructor;
 
 import krpaivin.telcal.config.Constants;
+import krpaivin.telcal.config.Messages;
 import krpaivin.telcal.config.TelegramBotConfig;
 import krpaivin.telcal.data.UserAuthData;
-import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 @Service
@@ -56,7 +57,7 @@ public class ChatGPTHadler {
             } else if (typeGPTRequest == TypeGPTRequest.SEARCH_TEXT) {
                 prompt = getInstructionsForSearchFromText(voiceText);
             } else {
-                throw new IOException("Unknown request type to ChatGPT.");
+                throw new IOException(Messages.UNKNOWN_REQUEST_GPT);
             }
 
             String jsonInputString = "{\"model\": \"" + Constants.GPT_MODEL + "\", " +
@@ -94,11 +95,11 @@ public class ChatGPTHadler {
                     .getString("content");
 
         } catch (JSONException e) {
-            throw new JSONException("Error processing JSON response from ChatGPT.");
+            throw new JSONException(Messages.ERROR_JSON_GPT);
         } catch (URISyntaxException e) {
-            throw new IllegalArgumentException("Invalid URL format: " + TelegramBotConfig.getOpenAIURL(), e);
+            throw new IllegalArgumentException(Messages.INVALID_URL + TelegramBotConfig.getOpenAIURL(), e);
         } catch (IOException e) {
-            throw new IllegalArgumentException("Error receiving response from ChatGPT." + e.getMessage());
+            throw new IllegalArgumentException(Messages.ERROR_RECEIVING_GPT + e.getMessage());
         }
     }
 
@@ -162,6 +163,10 @@ public class ChatGPTHadler {
     private String getInstructionsForCreatingCalendar(String voiceText, String userId) {
 
         LocalDateTime today = LocalDateTime.now();
+        String todayStr = today.format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
+        String nextDayStr = today.plusDays(1).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
+        String currentYear = today.format(DateTimeFormatter.ofPattern(Constants.YEAR_PATTERN));
+        String nextYear = today.plusYears(1).format(DateTimeFormatter.ofPattern(Constants.YEAR_PATTERN));
         String keywords = userAuthData.getKeywords(userId);
         String defaultKeyword = userAuthData.getDefaultKeywords(userId);
         String compoundKeywords = userAuthData.getCompoundKeywords(userId);
@@ -175,16 +180,17 @@ public class ChatGPTHadler {
                     keywordExists = true;    
                 }
                 res.append(" 'description'. ")
-                .append("If the year is not specified in the source text, then set the current year. ")
+                .append("If the year is not specified in the original text and the date you specify may be greater than ")
+                .append(todayStr).append(" , then the ")
+                .append(currentYear).append(" is set. Otherwise, the year ").append(nextYear).append(" is set. ")
                 .append("The month can be specified as a number or a word. ")
-                .append("The date can be specified in free form. ")
+                .append("If the date is not explicitly set in the past, then the date you set must be greater then  ")
+                .append(todayStr).append(". The date can be specified in free form. ")
                 .append("For example: tomorrow, tomorrow at eight, the day after tomorrow, some day this week and the next, etc. ")
                 .append("The date specified in this way is counted from the current day equal to ")
-                .append(today.format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN)))
-                    .append(" and time from the source text. ")
+                .append(todayStr).append(" and time from the source text. ")
                 .append("If the date is missing or could not be determined, then it is necessary to set the date equal to ")
-                .append(today.plusDays(1).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN)))
-                    .append(" and time from the source text. ")
+                .append(nextDayStr).append(" and time from the source text. ")
                 .append("The time can be specified in a free form. ")
                 .append("For example: at eight, at ten in the evening, at nineteen zero zero, 10, etc.")
                 .append("If you could not determine the time in the source text, then set the time to 09:00. ")
@@ -212,9 +218,6 @@ public class ChatGPTHadler {
                         .append(defaultKeyword).append(". ");
                 }
                 res.append(". 'Description' is the remaining text without date and duration. ")
-                // .append("If there is no keyword in the source text, then answer strictly ")
-                // .append("in the format: 'yyyy-MM-dd HH:mm / Duration=mm / Description'. ")
-                // .append("There is no need to display the word 'Description'. ")
                 .append("If there is a keyword in the source text, then ")
                 .append("answer in the format: 'yyyy-MM-dd HH:mm / Duration=mm / Keyword. Description'.")
                 .append("If there is no keyword in the source text, then ")
@@ -243,7 +246,6 @@ public class ChatGPTHadler {
             .append("Dates can be specified in a free format. The description is the rest of the text. ")
             .append("Format the source text and output it in the following format: yyyy-MM-dd yyyy-MM-dd Description. ")
             .append("The description may be missing. ")
-            //.append("If the source text does not have a start date and/or end date, output: Error. No date specified. ")
             .append("Here is the source text: " + text);
         return res.toString();
     }
@@ -256,7 +258,6 @@ public class ChatGPTHadler {
             .append("Description - arbitrary text. Description may be missing. ")
             .append("Format the source text and output it in the following ")
             .append("format: yyyy-MM-dd / yyyy-MM-dd / Description / Search type.")
-            //.append("If the source text does not have a start date and/or end date, output equal: Error. Date not specified. ")
             .append("Here is the source text: " + text);
         return res.toString();
     }

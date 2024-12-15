@@ -15,10 +15,18 @@ import java.io.OutputStream;
 
 import com.assemblyai.api.AssemblyAI;
 import com.assemblyai.api.resources.transcripts.types.*;
+import lombok.RequiredArgsConstructor;
 
+import org.springframework.stereotype.Component;
+
+import krpaivin.telcal.chatgpt.ChatGPTHadler;
+import krpaivin.telcal.chatgpt.TypeGPTRequest;
 import krpaivin.telcal.config.TelegramBotConfig;
 
+@RequiredArgsConstructor
+@Component
 public class VoiceCommandHandler {
+    private final ChatGPTHadler chatGPTHadler;
 
     public String convertVoiceToText(String fileUrl) throws IOException {
         URL url;
@@ -38,7 +46,6 @@ public class VoiceCommandHandler {
 
             var client = AssemblyAI.builder()
                     .apiKey(TelegramBotConfig.getAssemblyAI())
-                    //.apiKey(botConfig.getAssemblyAI())
                     .build();
 
             var params = TranscriptOptionalParams.builder()
@@ -105,5 +112,20 @@ public class VoiceCommandHandler {
         return response.toString();
     }
 
+    protected String[] extractDetailsFromVoiceAndGPT(TypeGPTRequest typeGPTRequest, String userId, String fileUrl) throws IOException {
+        String gptResponse = getResponseFromVoiceAndGPT(typeGPTRequest, userId, fileUrl);
+        String[] details = null;
+        if (typeGPTRequest == TypeGPTRequest.ANALYTICS) {
+            details = TextHandler.extractAnalyticDetails(gptResponse);
+        } else if (typeGPTRequest == TypeGPTRequest.SEARCH) {
+            details = TextHandler.extractSearchDetails(gptResponse);
+        }
+        return details;
+    }
 
+    protected String getResponseFromVoiceAndGPT(TypeGPTRequest typeGPTRequest, String userId, String fileUrl) throws IOException {
+        String voiceText = convertVoiceToText(fileUrl);
+        return chatGPTHadler.publicGetResponseFromChatGPT(voiceText, typeGPTRequest, userId);
+    }
+    
 }

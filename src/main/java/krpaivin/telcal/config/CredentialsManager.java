@@ -5,22 +5,21 @@ import org.json.JSONObject;
 import krpaivin.telcal.data.CredentialsLoader;
 
 public class CredentialsManager {
-    private static final String CREDENTIALS_PATH = "config/credentials.json";
     private static String clientId;
     private static String clientSecret;
 
     static {
         try {
-            JSONObject jsonCredentials = CredentialsLoader.loadCredentials(CREDENTIALS_PATH);
+            JSONObject jsonCredentials = CredentialsLoader.loadCredentials(Constants.CREDENTIALS_FILE_PATH);
             if (jsonCredentials != null) {
                 JSONObject installed = jsonCredentials.getJSONObject("installed");
                 clientId = installed.getString("client_id");
                 clientSecret = installed.getString("client_secret");
             } else {
-                throw new Exception("Error accessing calendar credentials");
+                throw new Exception(Messages.ERROR_ACCESS_CREDETIALS);
             }
         } catch (Exception e) {
-            throw new RuntimeException("Failed to load credentials from " + CREDENTIALS_PATH, e);
+            throw new RuntimeException(Messages.FAILD_LOAD_CREDENTIALS + Constants.CREDENTIALS_FILE_PATH, e);
         }
     }
 

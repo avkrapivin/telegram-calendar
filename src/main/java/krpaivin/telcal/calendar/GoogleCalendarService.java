@@ -21,6 +21,7 @@ import com.google.api.services.calendar.model.CalendarList;
 import krpaivin.telcal.config.CalendarData;
 import krpaivin.telcal.config.Constants;
 import krpaivin.telcal.config.CredentialsManager;
+import krpaivin.telcal.config.Messages;
 import krpaivin.telcal.config.UserCalendar;
 import krpaivin.telcal.data.UserAuthData;
 import lombok.RequiredArgsConstructor;
@@ -55,7 +56,7 @@ public class GoogleCalendarService {
         Map<String, String> mapCredentials = userAuthData.getCredentialFromData(userId);
 
         if (mapCredentials == null) {
-            throw new IllegalStateException("Error accessing calendar");
+            throw new IllegalStateException(Messages.ERROR_ACCESSING_CALENDAR);
         }
 
         String calendarId = mapCredentials.get(userId + Constants.BD_FIELD_CALENDAR);
@@ -100,7 +101,7 @@ public class GoogleCalendarService {
                 .setJsonFactory(Constants.JSON_FACTORY)
                 .setTransport(httpTransport)
                 .setClientAuthentication(new ClientParametersAuthentication(clientId, clientSecret))
-                .setTokenServerEncodedUrl("https://oauth2.googleapis.com/token")
+                .setTokenServerEncodedUrl(Constants.OAUTH_PATH_TOKEN)
                 .build()
                 .setAccessToken(accessToken)
                 .setRefreshToken(refreshToken)
@@ -123,7 +124,7 @@ public class GoogleCalendarService {
         Map<String, String> mapCredentials = userAuthData.getCredentialFromData(userId);
 
         if (mapCredentials == null) {
-            throw new IllegalStateException("Error accessing calendar");
+            throw new IllegalStateException(Messages.ERROR_ACCESSING_CALENDAR);
         }
 
         String calendarId = mapCredentials.get(userId + Constants.BD_FIELD_CALENDAR);
@@ -181,7 +182,7 @@ public class GoogleCalendarService {
         Map<String, String> mapCredentials = userAuthData.getCredentialFromData(userId);
 
         if (mapCredentials == null) {
-            throw new IllegalStateException("Error accessing calendar");
+            throw new IllegalStateException(Messages.ERROR_ACCESSING_CALENDAR);
         }
 
         String calendarId = mapCredentials.get(userId + Constants.BD_FIELD_CALENDAR);

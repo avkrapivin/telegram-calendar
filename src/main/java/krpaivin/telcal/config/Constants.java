@@ -16,6 +16,7 @@ public final class Constants {
     public static final List<String> SCOPES = Collections.singletonList(CalendarScopes.CALENDAR);
     public static final String CREDENTIALS_FILE_PATH = "config/credentials.json";
     public static final String GPT_MODEL = "gpt-4o-mini";
+    public static final String OAUTH_PATH_TOKEN = "https://oauth2.googleapis.com/token";
 
     public static final String BUTTON_CONFIRM_EVENT = "confirm_event";
     public static final String BUTTON_CANCEL_EVENT = "cancel_event";
@@ -42,5 +43,6 @@ public final class Constants {
     public static final String BD_FIELD_EXP_TIME_TOKEN = "_expirationTimeToken";
 
     public static final String DATE_TIME_PATTERN = "yyyy-MM-dd HH:mm";
-    public static final String DATE_PATTERN = "yyyy.MM.dd";
+    public static final String DATE_PATTERN = "dd.MM.yyyy";
+    public static final String YEAR_PATTERN = "yyyy";
 }
