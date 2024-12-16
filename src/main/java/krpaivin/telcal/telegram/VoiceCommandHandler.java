@@ -23,11 +23,23 @@ import krpaivin.telcal.chatgpt.ChatGPTHadler;
 import krpaivin.telcal.chatgpt.TypeGPTRequest;
 import krpaivin.telcal.config.TelegramBotConfig;
 
+/**
+ * Handles voice command processing, including converting voice input to text
+ * and interacting with the ChatGPT API for responses based on voice commands.
+ */
 @RequiredArgsConstructor
 @Component
 public class VoiceCommandHandler {
     private final ChatGPTHadler chatGPTHadler;
 
+    /**
+     * Converts a voice audio file located at the specified URL to text using AssemblyAI.
+     *
+     * @param fileUrl the URL of the audio file to convert to text
+     * @return the transcribed text from the audio file
+     * @throws IOException if an I/O error occurs during the process
+     * @throws IllegalArgumentException if the provided URL format is invalid
+     */
     public String convertVoiceToText(String fileUrl) throws IOException {
         URL url;
         try {
@@ -65,6 +77,14 @@ public class VoiceCommandHandler {
         }
     }
 
+    /**
+     * Uploads an audio file to AssemblyAI for transcription.
+     *
+     * @param audioInputStream the input stream of the audio file to upload
+     * @return the upload URL of the audio file after a successful upload
+     * @throws IOException if an I/O error occurs during the upload process
+     * @throws IllegalArgumentException if the URL format for AssemblyAI is invalid
+     */
     private String uploadAudioFile(InputStream audioInputStream) throws IOException {
         URL url;
         try {
@@ -97,6 +117,13 @@ public class VoiceCommandHandler {
         }
     }
 
+    /**
+     * Reads the response from the given HTTP connection.
+     *
+     * @param connection the HTTP connection to read the response from
+     * @return the response as a string
+     * @throws IOException if an I/O error occurs while reading the response
+     */
     private String readResponse(HttpURLConnection connection) throws IOException {
         InputStream stream = connection.getResponseCode() == HttpURLConnection.HTTP_OK
                 ? connection.getInputStream()
@@ -112,6 +139,16 @@ public class VoiceCommandHandler {
         return response.toString();
     }
 
+    /**
+     * Extracts specific details from the voice command and the response from ChatGPT
+     * based on the request type.
+     *
+     * @param typeGPTRequest the type of request for GPT processing
+     * @param userId the ID of the user making the request
+     * @param fileUrl the URL of the audio file for voice command
+     * @return an array of extracted details
+     * @throws IOException if an I/O error occurs during processing
+     */
     protected String[] extractDetailsFromVoiceAndGPT(TypeGPTRequest typeGPTRequest, String userId, String fileUrl) throws IOException {
         String gptResponse = getResponseFromVoiceAndGPT(typeGPTRequest, userId, fileUrl);
         String[] details = null;
@@ -123,6 +160,15 @@ public class VoiceCommandHandler {
         return details;
     }
 
+    /**
+     * Gets a response from ChatGPT based on the voice command processed from the audio file.
+     *
+     * @param typeGPTRequest the type of request for GPT processing
+     * @param userId the ID of the user making the request
+     * @param fileUrl the URL of the audio file for voice command
+     * @return the response from ChatGPT
+     * @throws IOException if an I/O error occurs during processing
+     */
     protected String getResponseFromVoiceAndGPT(TypeGPTRequest typeGPTRequest, String userId, String fileUrl) throws IOException {
         String voiceText = convertVoiceToText(fileUrl);
         return chatGPTHadler.publicGetResponseFromChatGPT(voiceText, typeGPTRequest, userId);

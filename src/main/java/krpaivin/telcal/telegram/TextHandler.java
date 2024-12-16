@@ -3,10 +3,24 @@ package krpaivin.telcal.telegram;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * A utility class for handling text responses from GPT, extracting relevant details for event creation, 
+ * analytics, and searches.
+ */
 public class TextHandler {
 
     private TextHandler() {}
 
+    /**
+     * Extracts analytic details from the given GPT response.
+     *
+     * @param gptResponse the response string from GPT containing date and keyword information.
+     * @return an array of strings containing the start date, end date, and keyword extracted from the response.
+     *         The array structure is as follows:
+     *         - Index 0: Start date in "yyyy-MM-dd HH:mm" format.
+     *         - Index 1: End date in "yyyy-MM-dd HH:mm" format.
+     *         - Index 2: Keyword extracted from the response.
+     */
     protected static String[] extractAnalyticDetails(String gptResponse) {
         String[] details = new String[3];
         // Template for date in yyyy-MM-dd HH:mm
@@ -37,6 +51,17 @@ public class TextHandler {
         return details;
     }
 
+    /**
+     * Extracts event details from the given GPT response.
+     *
+     * @param gptResponse the response string from GPT containing event details.
+     * @return an array of strings containing the date, time, duration, and description extracted from the response.
+     *         The array structure is as follows:
+     *         - Index 0: Date in "yyyy-MM-dd" format.
+     *         - Index 1: Time in "HH:mm" format.
+     *         - Index 2: Duration in integer format.
+     *         - Index 3: Description of the event.
+     */
     protected static String[] extractEventDetails(String gptResponse) {
         String[] details = new String[4];
         // Template for date in yyyy-MM-dd
@@ -71,6 +96,17 @@ public class TextHandler {
         return details;
     }
 
+    /**
+     * Extracts search details from the given GPT response.
+     *
+     * @param gptResponse the response string from GPT containing search criteria.
+     * @return an array of strings containing the start date, end date, search type, and keyword extracted from the response.
+     *         The array structure is as follows:
+     *         - Index 0: Start date in "yyyy-MM-dd HH:mm" format.
+     *         - Index 1: End date in "yyyy-MM-dd HH:mm" format.
+     *         - Index 2: Search type (first, last, all).
+     *         - Index 3: Keyword extracted from the response.
+     */
     public static String[] extractSearchDetails(String gptResponse) {
         String[] details = new String[4];
         // Template for date in yyyy-MM-dd HH:mm
@@ -108,6 +144,12 @@ public class TextHandler {
         return details;
     }
 
+    /**
+     * Provides a help text detailing the functionalities available to the user.
+     *
+     * @return a string containing instructions on how to use the bot, including how to add events,
+     *         search for events, and view analytics.
+     */
     protected static String getTextHepl() {
         return "You can:\n" + 
         "- add events using a text message\n" +
@@ -132,6 +174,12 @@ public class TextHandler {
         "5. Bot settings are set at startup (command /start). You can also change the settings using the command /setting";
     }
 
+    /**
+     * Checks if the provided message text is in the correct format for event creation.
+     *
+     * @param messageText the text message to check.
+     * @return true if the format is correct; false otherwise.
+     */
     public static boolean checkFormatEventCreation(String messageText) {
         boolean res = true;
         String pattern = "\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2} .+$";
@@ -143,6 +191,12 @@ public class TextHandler {
         return res;
     }
 
+    /**
+     * Checks if the provided message text is in the correct format for analytics requests.
+     *
+     * @param messageText the text message to check.
+     * @return true if the format is correct; false otherwise.
+     */
     public static boolean checkFormatAnalyticsRequest(String messageText) {
         boolean res = true;
         String pattern = "(\\d{4}-\\d{2}-\\d{2}) (\\d{4}-\\d{2}-\\d{2}) (.+)$";
@@ -155,6 +209,12 @@ public class TextHandler {
         return res;
     }
 
+    /**
+     * Checks if the provided message text is in the correct format for search requests.
+     *
+     * @param messageText the text message to check.
+     * @return true if the format is correct; false otherwise.
+     */
     public static boolean checkFormatSearchRequest(String messageText) {
         //"yyyy-MM-dd / yyyy-MM-dd / TypeSearch / Keyword"
         boolean res = true;
@@ -172,6 +232,13 @@ public class TextHandler {
         return res;
     }
 
+    /**
+     * Constructs a response message for search requests based on the extracted search details.
+     *
+     * @param searchDetails an array of strings containing search details including start date, end date,
+     *                      search type, and keyword.
+     * @return a formatted response message summarizing the search request.
+     */
     public static String getSearchMessageForResponse(String[] searchDetails) {
         String[] startDate = searchDetails[0].split(" ");
         String[] endDate = searchDetails[1].split(" ");
@@ -179,6 +246,13 @@ public class TextHandler {
             + " / Search type = " + searchDetails[2] + " / Keyword = " + searchDetails[3];
     }
 
+    /**
+     * Constructs a response message for analytics requests based on the extracted analytic details.
+     *
+     * @param analyticDetails an array of strings containing analytic details including start date,
+     *                        end date, and keyword.
+     * @return a formatted response message summarizing the analytics request.
+     */
     public static String getAnalyticsMessageForResponse(String[] analyticDetails) {
         String[] startDate = analyticDetails[0].split(" ");
         String[] endDate = analyticDetails[1].split(" ");

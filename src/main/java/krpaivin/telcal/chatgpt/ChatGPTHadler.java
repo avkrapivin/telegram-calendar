@@ -23,16 +23,49 @@ import krpaivin.telcal.config.Messages;
 import krpaivin.telcal.config.TelegramBotConfig;
 import krpaivin.telcal.data.UserAuthData;
 
+/**
+ * Handles communication with the ChatGPT API for generating responses based on
+ * user input and request type.
+ */
 @RequiredArgsConstructor
 @Service
 public class ChatGPTHadler {
 
     private final UserAuthData userAuthData;
 
+    /**
+     * Gets a response from ChatGPT based on the provided voice text, request type,
+     * and user ID.
+     * 
+     * @param voiceText      the input text to be analyzed or processed by ChatGPT.
+     * @param typeGPTRequest the type of request indicating the purpose of the
+     *                       response, such as creating events,
+     *                       performing analytics, or searching for information.
+     * @param userId         the ID of the user making the request.
+     * @return a response string from ChatGPT.
+     * @throws IllegalArgumentException if there is an error with the API connection
+     *                                  or the request type is unknown.
+     * @throws JSONException            if there is an issue parsing the JSON
+     *                                  response.
+     */
     public String publicGetResponseFromChatGPT(String voiceText, TypeGPTRequest typeGPTRequest, String userId) {
         return getResponseFromChatGPT(voiceText, typeGPTRequest, userId);
     }
 
+    /**
+     * Gets a response from ChatGPT for internal use, with specific processing based
+     * on the request type.
+     *
+     * @param voiceText      the input text for ChatGPT to analyze or process.
+     * @param typeGPTRequest the type of request to determine the instructions sent
+     *                       to ChatGPT.
+     * @param userId         the ID of the user making the request.
+     * @return the processed response from ChatGPT.
+     * @throws IllegalArgumentException if there is an error with the API connection
+     *                                  or the request type is unknown.
+     * @throws JSONException            if there is an issue parsing the JSON
+     *                                  response.
+     */
     protected String getResponseFromChatGPT(String voiceText, TypeGPTRequest typeGPTRequest, String userId) {
         try {
             // Connect to ChatGPT API to get response
@@ -103,6 +136,12 @@ public class ChatGPTHadler {
         }
     }
 
+    /**
+     * Constructs instructions for ChatGPT to process search-related requests.
+     *
+     * @param voiceText the input text containing search criteria.
+     * @return a formatted instruction string for ChatGPT to perform the search.
+     */
     private String getInstructionsForSearch(String voiceText) {
         LocalDateTime today = LocalDateTime.now();
         StringBuilder res = new StringBuilder();
@@ -133,6 +172,13 @@ public class ChatGPTHadler {
         return res.toString();
     }
 
+    /**
+     * Constructs instructions for ChatGPT to perform analytics based on the given
+     * text.
+     *
+     * @param voiceText the input text containing analytics criteria.
+     * @return a formatted instruction string for ChatGPT to perform analytics.
+     */
     private String getInstructionsForAnalytics(String voiceText) {
         LocalDateTime today = LocalDateTime.now();
         StringBuilder res = new StringBuilder();
@@ -145,7 +191,8 @@ public class ChatGPTHadler {
                 .append("If the period is not specified or the all-time period is assumed, ")
                 .append("then 'Start Date' must be set equal to 01.01.1900. ")
                 .append("And set 'End Date' equal to ")
-                .append(today.with(LocalTime.MAX).format(DateTimeFormatter.ofPattern(Constants.DATE_TIME_PATTERN))).append(". ")
+                .append(today.with(LocalTime.MAX).format(DateTimeFormatter.ofPattern(Constants.DATE_TIME_PATTERN)))
+                .append(". ")
                 .append("The keyword comes after the word 'keyword' (if the text is in English). ")
                 .append("If the text is in any other language, the keyword will be after the keyword ")
                 .append("written in translation into that language. ")
@@ -160,6 +207,15 @@ public class ChatGPTHadler {
         return res.toString();
     }
 
+    /**
+     * Constructs instructions for ChatGPT to create a calendar event from the
+     * provided text and user-specific data.
+     *
+     * @param voiceText the input text describing the event.
+     * @param userId    the ID of the user for accessing personalized data.
+     * @return a formatted instruction string for ChatGPT to create a calendar
+     *         event.
+     */
     private String getInstructionsForCreatingCalendar(String voiceText, String userId) {
 
         LocalDateTime today = LocalDateTime.now();
@@ -174,12 +230,12 @@ public class ChatGPTHadler {
         StringBuilder res = new StringBuilder();
 
         res.append("Analyze the text and find 'date', 'start time', 'duration', ");
-                if ((keywords != null && !"".equals(keywords)) 
-                    || (compoundKeywords != null && !"".equals(compoundKeywords))) {
-                    res.append(" 'keyword', ");
-                    keywordExists = true;    
-                }
-                res.append(" 'description'. ")
+        if ((keywords != null && !"".equals(keywords))
+                || (compoundKeywords != null && !"".equals(compoundKeywords))) {
+            res.append(" 'keyword', ");
+            keywordExists = true;
+        }
+        res.append(" 'description'. ")
                 .append("If the year is not specified in the original text and the date you specify may be greater than ")
                 .append(todayStr).append(" , then the ")
                 .append(currentYear).append(" is set. Otherwise, the year ").append(nextYear).append(" is set. ")
@@ -197,27 +253,27 @@ public class ChatGPTHadler {
                 .append("Duration is the number of minutes that indicates how long the event will last. ")
                 .append("If a start and end time are specified, the duration is equal to the difference between them. ")
                 .append("If the duration is missing, it should be equal to 60 minutes. ");
-                if (keywordExists) {
-                    res.append("The following keywords are possible: ");
-                }
-                if (keywords != null && !"".equals(keywords)) {
-                    res.append(keywords).append(", ");
-                }
-                if (compoundKeywords != null && !"".equals(compoundKeywords)) {
-                    res.append(compoundKeywords).append(". ");
-                }
-                if (compoundKeywords != null && !"".equals(compoundKeywords)) {
-                    String[] arrayString = compoundKeywords.split(",");
-                    for (String str : arrayString) {
-                        res.append("If the original text contains together the words ").append(str).append(", ")
-                            .append("then consider it one keyword. ");    
-                    }
-                }
-                if (defaultKeyword != null && !"".equals(defaultKeyword)) {
-                    res.append("If there is no keyword, then you need to install keyword equals ")
-                        .append(defaultKeyword).append(". ");
-                }
-                res.append(". 'Description' is the remaining text without date and duration. ")
+        if (keywordExists) {
+            res.append("The following keywords are possible: ");
+        }
+        if (keywords != null && !"".equals(keywords)) {
+            res.append(keywords).append(", ");
+        }
+        if (compoundKeywords != null && !"".equals(compoundKeywords)) {
+            res.append(compoundKeywords).append(". ");
+        }
+        if (compoundKeywords != null && !"".equals(compoundKeywords)) {
+            String[] arrayString = compoundKeywords.split(",");
+            for (String str : arrayString) {
+                res.append("If the original text contains together the words ").append(str).append(", ")
+                        .append("then consider it one keyword. ");
+            }
+        }
+        if (defaultKeyword != null && !"".equals(defaultKeyword)) {
+            res.append("If there is no keyword, then you need to install keyword equals ")
+                    .append(defaultKeyword).append(". ");
+        }
+        res.append(". 'Description' is the remaining text without date and duration. ")
                 .append("If there is a keyword in the source text, then ")
                 .append("answer in the format: 'yyyy-MM-dd HH:mm / Duration=mm / Keyword. Description'.")
                 .append("If there is no keyword in the source text, then ")
@@ -227,38 +283,59 @@ public class ChatGPTHadler {
         return res.toString();
     }
 
+    /**
+     * Generates a string containing instructions for analyzing and formatting a
+     * source text to create a calendar entry.
+     *
+     * @param text the source text to analyze
+     * @return a formatted string with instructions for processing the text
+     */
     private String getInstructionsForCreatingCalendarFromText(String text) {
         StringBuilder res = new StringBuilder();
         res.append("Analyze the source text. Find the date, time, and description. ")
-            .append("The date and time can be specified in a free format. ")
-            .append("The description is the rest of the text. Format the source text ")
-            .append("and output it in the following format: yyyy-MM-dd HH:mm Description. ")
-            .append("If the date is not specified in the source text, output: Error. Date is not specified. ")
-            .append("If the time is not specified in the source text, output: Error. Time is not specified. ")
-            .append("If the description is missing in the source text, output: Error. Description is not specified. ")
-            .append("Here is the source text: " + text);
+                .append("The date and time can be specified in a free format. ")
+                .append("The description is the rest of the text. Format the source text ")
+                .append("and output it in the following format: yyyy-MM-dd HH:mm Description. ")
+                .append("If the date is not specified in the source text, output: Error. Date is not specified. ")
+                .append("If the time is not specified in the source text, output: Error. Time is not specified. ")
+                .append("If the description is missing in the source text, output: Error. Description is not specified. ")
+                .append("Here is the source text: " + text);
         return res.toString();
     }
 
+    /**
+     * Generates a string containing instructions for analyzing and formatting a
+     * source text for analytics.
+     *
+     * @param text the source text to analyze
+     * @return a formatted string with instructions for processing the text
+     */
     private String getInstructionsForAnalyticsFromText(String text) {
         StringBuilder res = new StringBuilder();
         res.append("Analyze the source text. Find the start date, end date, and description. ")
-            .append("Dates can be specified in a free format. The description is the rest of the text. ")
-            .append("Format the source text and output it in the following format: yyyy-MM-dd yyyy-MM-dd Description. ")
-            .append("The description may be missing. ")
-            .append("Here is the source text: " + text);
+                .append("Dates can be specified in a free format. The description is the rest of the text. ")
+                .append("Format the source text and output it in the following format: yyyy-MM-dd yyyy-MM-dd Description. ")
+                .append("The description may be missing. ")
+                .append("Here is the source text: " + text);
         return res.toString();
     }
 
+    /**
+     * Generates a string containing instructions for analyzing and formatting a
+     * source text for a search query.
+     *
+     * @param text the source text to analyze
+     * @return a formatted string with instructions for processing the text
+     */
     private String getInstructionsForSearchFromText(String text) {
         StringBuilder res = new StringBuilder();
         res.append("Analyze the source text. Find the start date, end date, search type, and description. ")
-            .append("Dates can be specified in a free format. The search type can take ")
-            .append("the following values: first/last/all. Search type may be missing. ")
-            .append("Description - arbitrary text. Description may be missing. ")
-            .append("Format the source text and output it in the following ")
-            .append("format: yyyy-MM-dd / yyyy-MM-dd / Description / Search type.")
-            .append("Here is the source text: " + text);
+                .append("Dates can be specified in a free format. The search type can take ")
+                .append("the following values: first/last/all. Search type may be missing. ")
+                .append("Description - arbitrary text. Description may be missing. ")
+                .append("Format the source text and output it in the following ")
+                .append("format: yyyy-MM-dd / yyyy-MM-dd / Description / Search type.")
+                .append("Here is the source text: " + text);
         return res.toString();
     }
 

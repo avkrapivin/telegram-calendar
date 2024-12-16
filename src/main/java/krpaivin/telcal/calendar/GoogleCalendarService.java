@@ -42,6 +42,12 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+/**
+ * Provides services for interacting with Google Calendar, including creating
+ * events,
+ * retrieving events based on keywords or time ranges, and managing user
+ * credentials.
+ */
 @RequiredArgsConstructor
 @Service
 public class GoogleCalendarService {
@@ -49,8 +55,24 @@ public class GoogleCalendarService {
     private final UserAuthData userAuthData;
     private final Cache<String, UserCalendar> calendarSelectionCache;
 
+    /**
+     * Creates a new event in the user's Google Calendar.
+     *
+     * @param summary       the event summary (title).
+     * @param description   the event description.
+     * @param startDateTime the start date and time of the event.
+     * @param endDateTime   the end date and time of the event.
+     * @param userId        the ID of the user for whom the event is created.
+     * @throws GeneralSecurityException if there is a security issue accessing
+     *                                  Google APIs.
+     * @throws IOException              if there is an issue communicating with
+     *                                  Google APIs.
+     * @throws IllegalStateException    if user credentials or calendar information
+     *                                  are not available.
+     */
     public void createGoogleCalendarEvent(String summary, String description,
-            LocalDateTime startDateTime, LocalDateTime endDateTime, String userId) throws GeneralSecurityException, IOException {
+            LocalDateTime startDateTime, LocalDateTime endDateTime, String userId)
+            throws GeneralSecurityException, IOException {
 
         final NetHttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
         Map<String, String> mapCredentials = userAuthData.getCredentialFromData(userId);
@@ -87,6 +109,21 @@ public class GoogleCalendarService {
         service.events().insert(calendarId, event).execute();
     }
 
+    /**
+     * Retrieves a {@link Credential} object for a user, initializing it with an
+     * access token, refresh token, and expiration time. If the access token is expired 
+     * or unavailable, the method refreshes the token.
+     *
+     * @param userId         the unique identifier of the user.
+     * @param httpTransport  the {@link NetHttpTransport} instance used for network
+     *                       communication.
+     * @param mapCredentials a map containing user credentials, including access
+     *                       token, refresh token,
+     *                       and token expiration time.
+     * @return a {@link Credential} object initialized with the user's credentials.
+     * @throws IOException if an error occurs while refreshing the token or
+     *                     accessing credentials.
+     */
     private Credential getCredentialWithToken(String userId, final NetHttpTransport httpTransport,
             Map<String, String> mapCredentials) throws IOException {
 
@@ -114,6 +151,21 @@ public class GoogleCalendarService {
         return credential;
     }
 
+    /**
+     * Retrieves analytics of events based on a keyword within a specified date-time
+     * range.
+     *
+     * @param startDateTime the start of the time range.
+     * @param endDateTime   the end of the time range.
+     * @param keyword       the keyword to search for in events.
+     * @param userId        the ID of the user whose calendar is analyzed.
+     * @return a string containing the number of events and the total duration (in
+     *         hours).
+     * @throws GeneralSecurityException if there is a security issue accessing
+     *                                  Google APIs.
+     * @throws IOException              if there is an issue communicating with
+     *                                  Google APIs.
+     */
     public String analyticsEventsByKeyword(LocalDateTime startDateTime, LocalDateTime endDateTime,
             String keyword, String userId) throws GeneralSecurityException, IOException {
 
@@ -172,6 +224,23 @@ public class GoogleCalendarService {
         return "Amount events: " + eventCount + ".\n" + "All time (hours): " + totalDuration;
     }
 
+    /**
+     * Searches for events in the user's Google Calendar based on a keyword and time
+     * range.
+     *
+     * @param startDateTime the start of the time range.
+     * @param endDateTime   the end of the time range.
+     * @param keyword       the keyword to search for in events.
+     * @param searchType    the type of search: first event, last event, or all
+     *                      events.
+     * @param userId        the ID of the user whose calendar is searched.
+     * @return a formatted string containing details of the found events or a
+     *         message if no events are found.
+     * @throws GeneralSecurityException if there is a security issue accessing
+     *                                  Google APIs.
+     * @throws IOException              if there is an issue communicating with
+     *                                  Google APIs.
+     */
     public String searchEventInCalendar(LocalDateTime startDateTime, LocalDateTime endDateTime,
             String keyword, SearchType searchType, String userId) throws GeneralSecurityException, IOException {
         DateTime start = new DateTime(startDateTime.toString() + ":00Z");
@@ -233,6 +302,17 @@ public class GoogleCalendarService {
         return result;
     }
 
+    /**
+     * Formats an event object into a string containing its start date, duration,
+     * and description.
+     *
+     * @param event the Google Calendar {@link Event} to format.
+     * @return a formatted string with the event's date, duration in hours, and
+     *         description.
+     *         If the event is all-day, the date will reflect that. If no start date
+     *         is available,
+     *         a default date of "0001-01-01" is used.
+     */
     private String formatEvent(Event event) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
@@ -251,11 +331,11 @@ public class GoogleCalendarService {
 
         String start = "0001.01.01";
         long eventDuration = 0L;
-        
+
         if (startEvent != null && endEvent != null) {
             LocalDateTime localstartEvent = OffsetDateTime.parse(startEvent.toStringRfc3339()).toLocalDateTime();
             start = localstartEvent.format(formatter);
-    
+
             if (startEvent != null && endEvent != null) {
                 eventDuration = (endEvent.getValue() - startEvent.getValue()) / (1000 * 60 * 60);
             }
@@ -267,6 +347,11 @@ public class GoogleCalendarService {
                 event.getSummary());
     }
 
+    /**
+     * Generates a URL for Google OAuth authorization.
+     *
+     * @return the authorization URL.
+     */
     public String getUrlForAuthorization() {
         String url = "";
         GoogleAuthorizationCodeFlow flow = getGoogleFlow();
@@ -278,6 +363,12 @@ public class GoogleCalendarService {
         return url;
     }
 
+    /**
+     * Retrieves a pre-configured GoogleAuthorizationCodeFlow instance for managing
+     * user authorization.
+     *
+     * @return the GoogleAuthorizationCodeFlow instance.
+     */
     public GoogleAuthorizationCodeFlow getGoogleFlow() {
         GoogleAuthorizationCodeFlow flow = null;
 
@@ -295,6 +386,12 @@ public class GoogleCalendarService {
         return flow;
     }
 
+    /**
+     * Retrieves all calendars associated with the user's Google account.
+     *
+     * @param credential the user's Google API credentials.
+     * @return a map where keys are calendar IDs and values are calendar names.
+     */
     public Map<String, String> getAllCalendar(Credential credential) {
         Map<String, String> calendars = new HashMap<>();
         NetHttpTransport httpTransport;
@@ -314,9 +411,18 @@ public class GoogleCalendarService {
         return calendars;
     }
 
+    /**
+     * Exchanges an authorization code for access tokens and retrieves the user's
+     * calendars.
+     *
+     * @param messageText the authorization code received from the user.
+     * @param userId      the ID of the user for whom access is being granted.
+     * @return a message prompting the user to select a calendar or an error
+     *         message.
+     */
     public String getAccessToCalendar(String messageText, String userId) {
         String res = "";
-    
+
         try {
             GoogleAuthorizationCodeFlow flow = getGoogleFlow();
             TokenResponse tokenResponse = flow.newTokenRequest(messageText)
@@ -330,7 +436,8 @@ public class GoogleCalendarService {
                 res = "Select a calendar:";
                 Map<String, String> innerListOfCalendar = getAllCalendar(credential);
                 for (Entry<String, String> entryHashMap : innerListOfCalendar.entrySet()) {
-                    userCalendar.getObjects().put(count++, new CalendarData(Map.of(entryHashMap.getKey(), entryHashMap.getValue())));
+                    userCalendar.getObjects().put(count++,
+                            new CalendarData(Map.of(entryHashMap.getKey(), entryHashMap.getValue())));
                 }
                 calendarSelectionCache.put(userId, userCalendar);
             } else {

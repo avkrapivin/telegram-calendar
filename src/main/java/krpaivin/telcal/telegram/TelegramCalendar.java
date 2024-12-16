@@ -64,6 +64,11 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Handles a callback query from the user.
+     * 
+     * @param update the update containing the callback query.
+     */
     private void handleCallbackQuery(Update update) {
         CallbackQuery callbackQuery = update.getCallbackQuery();
         String chatId = callbackQuery.getMessage().getChatId().toString();
@@ -103,17 +108,29 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Cancels the current event creation process for the user.
+     * 
+     * @param chatId the chat ID of the user.
+     */
     private void cancelEvent(String chatId) {
         sessionDataCache.invalidate(chatId);
         sessionDataCache.invalidate(chatId + Constants.STATE);
         sendResponseMessage(chatId, Messages.OPERATION_CANCEL);
     }
 
+    /**
+     * Confirms the creation of an event using details stored in the session.
+     * 
+     * @param chatId the chat ID of the user.
+     * @param userId the ID of the user.
+     */
     private void confirmEvent(String chatId, String userId) {
         try {
             String gptResponse = sessionDataCache.getIfPresent(chatId);
             String[] eventDetails = TextHandler.extractEventDetails(gptResponse);
-            calendarDataService.createCalendarEvent(eventDetails[0], eventDetails[1], eventDetails[2], eventDetails[3], userId);
+            calendarDataService.createCalendarEvent(eventDetails[0], eventDetails[1], eventDetails[2], eventDetails[3],
+                    userId);
             sendResponseMessage(chatId, Messages.EVENT_CREATED);
         } catch (Exception e) {
             sendResponseMessage(chatId, Messages.ERROR_CREATING_EVENT);
@@ -121,6 +138,11 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         sessionDataCache.invalidate(chatId);
     }
 
+    /**
+     * Handles incoming text or voice messages from the user.
+     * 
+     * @param message the message to be processed.
+     */
     private void handleMessage(Message message) {
         String userId = message.getFrom().getUserName();
         String chatId = message.getChatId().toString();
@@ -139,6 +161,13 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Handles incoming voice messages from the user.
+     * 
+     * @param message the voice message to be processed.
+     * @param userId  the ID of the user.
+     * @param chatId  the chat ID of the user.
+     */
     private void handleVoiceMessage(Message message, String userId, String chatId) {
         try {
             String fileId = message.getVoice().getFileId();
@@ -146,21 +175,26 @@ public class TelegramCalendar extends TelegramLongPollingBot {
             String response = "";
 
             if (Constants.REQUEST_ANALYTICS.equals(sessionDataCache.getIfPresent(chatId + Constants.STATE))) {
-                String[] analyticDetails = voiceCommandHandler.extractDetailsFromVoiceAndGPT(TypeGPTRequest.ANALYTICS, userId, fileUrl);
+                String[] analyticDetails = voiceCommandHandler.extractDetailsFromVoiceAndGPT(TypeGPTRequest.ANALYTICS,
+                        userId, fileUrl);
                 sendResponseMessage(chatId, TextHandler.getAnalyticsMessageForResponse(analyticDetails));
-                response = calendarDataService.getAnalyticsFromCalendar(analyticDetails[0], analyticDetails[1], analyticDetails[2],
+                response = calendarDataService.getAnalyticsFromCalendar(analyticDetails[0], analyticDetails[1],
+                        analyticDetails[2],
                         chatId, userId);
                 sendResponseMessage(chatId, response);
 
             } else if (Constants.REQUEST_SEARCH.equals(sessionDataCache.getIfPresent(chatId + Constants.STATE))) {
-                String[] searchDetails = voiceCommandHandler.extractDetailsFromVoiceAndGPT(TypeGPTRequest.SEARCH, userId, fileUrl);
+                String[] searchDetails = voiceCommandHandler.extractDetailsFromVoiceAndGPT(TypeGPTRequest.SEARCH,
+                        userId, fileUrl);
                 sendResponseMessage(chatId, TextHandler.getSearchMessageForResponse(searchDetails));
-                response = calendarDataService.getFoundEventFromCalendar(searchDetails[0], searchDetails[1], searchDetails[2],
+                response = calendarDataService.getFoundEventFromCalendar(searchDetails[0], searchDetails[1],
+                        searchDetails[2],
                         searchDetails[3], chatId, userId);
                 sendResponseMessage(chatId, response);
 
             } else {
-                response = voiceCommandHandler.getResponseFromVoiceAndGPT(TypeGPTRequest.CREATING_EVENT, userId, fileUrl);
+                response = voiceCommandHandler.getResponseFromVoiceAndGPT(TypeGPTRequest.CREATING_EVENT, userId,
+                        fileUrl);
                 // Send message with response and buttons for confirmation
                 if (response != null && !"".equals(response)) {
                     sessionDataCache.put(chatId, response);
@@ -176,11 +210,24 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Checks if the bot is currently in maintenance mode for a specific user.
+     * 
+     * @param userId the ID of the user.
+     * @return true if the bot is in maintenance mode and the user is not exempt;
+     *         false otherwise.
+     */
     private boolean isBotInMaintenanceMode(String userId) {
         return TelegramBotConfig.getMaintenanceMode().equals("true")
                 && !userId.equals(TelegramBotConfig.getUserOneId());
     }
 
+    /**
+     * Sends a confirmation message to the user for the event creation.
+     * 
+     * @param chatId       the chat ID of the user.
+     * @param eventDetails the details of the event to be created.
+     */
     public void sendEventConfirmationMessage(String chatId, String eventDetails) {
         // Create buttons
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
@@ -203,6 +250,12 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         executeMessage(message);
     }
 
+    /**
+     * Handles text messages received from the user.
+     * 
+     * @param message the text message to be processed.
+     * @param userId  the ID of the user.
+     */
     private void handleTextMessage(Message message, String userId) {
         String messageText = message.getText();
         String chatId = message.getChatId().toString();
@@ -237,6 +290,15 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Processes a request to create an event based on the provided message text.
+     * This method interacts with the calendar data service to handle event creation
+     * and sends an appropriate response back to the user.
+     *
+     * @param messageText the text containing the details of the event to be created
+     * @param chatId      the ID of the chat where the response message is sent
+     * @param userId      the ID of the user requesting the event creation
+     */
     private void requestEventCreation(String messageText, String chatId, String userId) {
         try {
             calendarDataService.processEventCreation(messageText, userId);
@@ -248,6 +310,14 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Sends a search request based on the provided message text, chat ID, and user
+     * ID.
+     * 
+     * @param messageText the text message containing the search query
+     * @param chatId      the ID of the chat where the message is sent
+     * @param userId      the ID of the user initiating the search
+     */
     private void sendSearchRequest(String messageText, String chatId, String userId) {
         try {
             calendarDataService.processSearchRequest(messageText, chatId, userId);
@@ -258,6 +328,14 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Sends an analytics request based on the provided message text, chat ID, and
+     * user ID.
+     * 
+     * @param messageText the text message containing the analytics query
+     * @param chatId      the ID of the chat where the message is sent
+     * @param userId      the ID of the user requesting analytics
+     */
     private void sendAnalyticsRequest(String messageText, String chatId, String userId) {
         try {
             calendarDataService.processAnalyticsRequest(messageText, chatId, userId);
@@ -266,6 +344,11 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Sends a message to the user to choose various settings options.
+     * 
+     * @param chatId the ID of the chat where the message is sent
+     */
     private void sendChoiceOfSettingsMessage(String chatId) {
         // Create buttons
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
@@ -306,6 +389,12 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         executeMessage(message);
     }
 
+    /**
+     * Sends a message to the user to choose from available calendars.
+     * 
+     * @param chatId the ID of the chat where the message is sent
+     * @param userId the ID of the user requesting calendar selection
+     */
     private void sendChoiceOfCalendarsMessage(String chatId, String userId) {
         // Create buttons
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
@@ -340,10 +429,23 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Sends a request to the user to choose settings.
+     * 
+     * @param chatId the ID of the chat where the message is sent
+     */
     private void sendSettingRequest(String chatId) {
         sendChoiceOfSettingsMessage(chatId);
     }
 
+    /**
+     * Processes the request to set a calendar based on the provided message text,
+     * chat ID, and user ID.
+     * 
+     * @param messageText the text message containing the calendar ID to set
+     * @param chatId      the ID of the chat where the message is sent
+     * @param userId      the ID of the user setting the calendar
+     */
     private void processSetCalendar(String messageText, String chatId, String userId) {
         sessionDataCache.invalidate(chatId + Constants.STATE);
         if (userAuthData.saveSelectedCalendar(userId, messageText)) {
@@ -353,6 +455,14 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Sets the user's calendar based on the provided callback data, chat ID, and
+     * user ID.
+     * 
+     * @param chatId   the ID of the chat where the message is sent
+     * @param userId   the ID of the user setting the calendar
+     * @param callData the callback data containing the calendar selection
+     */
     private void setUserCalendar(String chatId, String userId, String callData) {
         String[] arrayData = callData.split("/");
         UserCalendar userCalendar = calendarSelectionCache.getIfPresent(userId);
@@ -376,6 +486,14 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Processes the authorization response based on the provided message text, chat
+     * ID, and user ID.
+     * 
+     * @param messageText the text message containing the authorization response
+     * @param chatId      the ID of the chat where the message is sent
+     * @param userId      the ID of the user authorizing access to their calendar
+     */
     private void processAuthorizationRresponse(String messageText, String chatId, String userId) {
         String choiceCalendar = googleCalendarService.getAccessToCalendar(messageText, userId);
         sessionDataCache.invalidate(chatId + Constants.STATE);
@@ -386,6 +504,14 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Processes the request to set compound keywords based on the provided message
+     * text, chat ID, and user ID.
+     * 
+     * @param messageText the text message containing the compound keywords
+     * @param chatId      the ID of the chat where the message is sent
+     * @param userId      the ID of the user setting the compound keywords
+     */
     private void processSetCompoundKeywordsRequest(String messageText, String chatId, String userId) {
         sessionDataCache.invalidate(chatId + Constants.STATE);
         if (userAuthData.saveCompoundKeywords(userId, messageText)) {
@@ -395,6 +521,14 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Processes the request to set default keywords based on the provided message
+     * text, chat ID, and user ID.
+     * 
+     * @param messageText the text message containing the default keywords
+     * @param chatId      the ID of the chat where the message is sent
+     * @param userId      the ID of the user setting the default keywords
+     */
     private void processSetDefaultKeywordsRequest(String messageText, String chatId, String userId) {
         sessionDataCache.invalidate(chatId + Constants.STATE);
         if (userAuthData.saveDefaultKeywords(userId, messageText)) {
@@ -404,6 +538,14 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Processes the request to set keywords based on the provided message text,
+     * chat ID, and user ID.
+     * 
+     * @param messageText the text message containing the keywords
+     * @param chatId      the ID of the chat where the message is sent
+     * @param userId      the ID of the user setting the keywords
+     */
     private void processSetKeywordsRequest(String messageText, String chatId, String userId) {
         sessionDataCache.invalidate(chatId + Constants.STATE);
         if (userAuthData.saveKeywords(userId, messageText)) {
@@ -413,6 +555,13 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Processes the request to clear all keywords for the user based on the
+     * provided chat ID and user ID.
+     * 
+     * @param chatId the ID of the chat where the message is sent
+     * @param userId the ID of the user requesting to clear all keywords
+     */
     private void clearAllKeywordsRequest(String chatId, String userId) {
         if (userAuthData.clearAllKeywords(userId)) {
             sendResponseMessage(chatId, Messages.KEYWORDS_CLEANED);
@@ -421,6 +570,12 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Sends a request for authorization to the user by providing a URL for
+     * authorization.
+     * 
+     * @param chatId the ID of the chat where the authorization request is sent
+     */
     private void sendAuthorizationRequest(String chatId) {
         String url = googleCalendarService.getUrlForAuthorization();
         if (!"".equals(url)) {
@@ -432,41 +587,87 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Sends a help message to the user, providing information or instructions on
+     * how to use the bot.
+     * 
+     * @param chatId the ID of the chat where the help message is sent
+     */
     private void sendHelp(String chatId) {
         String str = TextHandler.getTextHepl();
         sendResponseMessage(chatId, str);
     }
 
+    /**
+     * Sends a request for analytics to the user, indicating that analytics
+     * information is being requested.
+     * 
+     * @param chatId the ID of the chat where the analytics request is sent
+     */
     private void sendRequestForAnalytics(String chatId) {
         sessionDataCache.put(chatId + Constants.STATE, Constants.REQUEST_ANALYTICS);
         sendResponseMessage(chatId, Messages.REQUEST_ANALYTICST);
     }
 
+    /**
+     * Sends a request for search to the user, indicating that a search operation is
+     * being initiated.
+     * 
+     * @param chatId the ID of the chat where the search request is sent
+     */
     private void sendRequestForSearch(String chatId) {
         sessionDataCache.put(chatId + Constants.STATE, Constants.REQUEST_SEARCH);
         sendResponseMessage(chatId, Messages.REQUEST_SEARCH);
     }
 
+    /**
+     * Sends a request to set compound keywords to the user.
+     * 
+     * @param chatId the ID of the chat where the request for compound keywords is
+     *               sent
+     */
     private void sendSetCompoundKeywordsRequest(String chatId) {
         sessionDataCache.put(chatId + Constants.STATE, Constants.REQUEST_COMPOUND_KEYWORDS);
         sendResponseMessage(chatId, Messages.REQUEST_COMP_KEYWORDS);
     }
 
+    /**
+     * Sends a request to set default keywords to the user.
+     * 
+     * @param chatId the ID of the chat where the request for default keywords is
+     *               sent
+     */
     private void sendSetDefaultKeywordsRequest(String chatId) {
         sessionDataCache.put(chatId + Constants.STATE, Constants.REQUEST_DEFAULT_KEYWORDS);
         sendResponseMessage(chatId, Messages.REQUEST_DEFAULT_KEYWORD);
     }
 
+    /**
+     * Sends a request to set keywords to the user.
+     * 
+     * @param chatId the ID of the chat where the request for keywords is sent
+     */
     private void sendSetKeywordsRequest(String chatId) {
         sessionDataCache.put(chatId + Constants.STATE, Constants.REQUEST_KEYWORDS);
         sendResponseMessage(chatId, Messages.REQUEST_KEYWORDS);
     }
 
+    /**
+     * Sends a response message to the user in the specified chat.
+     * 
+     * @param chatId the ID of the chat where the message is sent
+     * @param text   the text content of the message to be sent
+     */
     public void sendResponseMessage(String chatId, String text) {
         SendMessage message = new SendMessage(chatId, text);
         executeMessage(message);
     }
 
+    /**
+     * Executes the provided SendMessage command, sending it to the Telegram API.
+     * 
+     * @param message the SendMessage object containing the message to be sent
+     */
     public void executeMessage(SendMessage message) {
         try {
             execute(message);
@@ -475,6 +676,14 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Retrieves the file URL for a given file ID from the Telegram API.
+     * 
+     * @param fileId the ID of the file to retrieve
+     * @return the URL of the file on the Telegram API
+     * @throws TelegramApiException if an error occurs while accessing the Telegram
+     *                              API
+     */
     private String getFileUrl(String fileId) throws TelegramApiException {
         GetFile getFile = new GetFile();
         getFile.setFileId(fileId);
