@@ -5,18 +5,17 @@
 Telegram bot for creating events in Google calendar using text and audio messages. And also for searching for events and collecting analytics on them.
 
 ## Technologies
-- Maven
-- Google API
-- ChatGPT API
-- AssemblyAI API
-- Caffeine
-- Lombok
-- JSON
-- Spring Core
-- Spring Data JPA
-- PostgreSQL
-- AWS, EC2, RDS
-
+- <img src="https://raw.githubusercontent.com/devicons/devicon/ca28c779441053191ff11710fe24a9e6c23690d6/icons/googlecloud/googlecloud-original-wordmark.svg" alt="Google API" width="30" height="30"/> Google API
+- <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/OpenAI_Logo.svg/1920px-OpenAI_Logo.svg.png" alt="OpenAI API" width="40" height="20"/> OpenAI API
+- <img src="https://raw.githubusercontent.com/devicons/devicon/ca28c779441053191ff11710fe24a9e6c23690d6/icons/json/json-original.svg" alt="JSON" width="30" height="30"/> JSON
+- <img src="https://raw.githubusercontent.com/devicons/devicon/ca28c779441053191ff11710fe24a9e6c23690d6/icons/spring/spring-original.svg" alt="Spring Core" width="30" height="30"/> Spring Core
+- <img src="https://spring.io/img/projects/spring-data.svg" alt="Spring Data" width="30" height="30"/> Spring Data
+- <img src="https://raw.githubusercontent.com/devicons/devicon/ca28c779441053191ff11710fe24a9e6c23690d6/icons/postgresql/postgresql-original.svg" alt="PostgreSQL" width="30" height="30"/> PostgreSQL
+- <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Amazon_Web_Services_Logo.svg/1280px-Amazon_Web_Services_Logo.svg.png" alt="Maven" width="30" height="30"/> AWS: EC2 + RDS
+- <img src="https://logowik.com/content/uploads/images/assemblyai2279.logowik.com.webp" alt="AssemblyAI API" width="30" height="30"/> AssemblyAI API
+- <img src="https://raw.githubusercontent.com/ben-manes/caffeine/master/wiki/logo.png" alt="Caffeine" width="30" height="30"/> Caffeine
+- <img src="https://avatars.githubusercontent.com/u/45949248?s=200&v=4" alt="Lombok" width="30" height="30"/> Lombok
+- <img src="https://raw.githubusercontent.com/devicons/devicon/ca28c779441053191ff11710fe24a9e6c23690d6/icons/maven/maven-original.svg" alt="Maven" width="30" height="30"/> Maven
 ## How It Works
 
 The bot follows these steps to process voice messages and create events in Google Calendar:
@@ -28,8 +27,7 @@ The bot follows these steps to process voice messages and create events in Googl
    The bot downloads the voice message using the Telegram API and sends it to a speech-to-text API (AssemblyAI). The result is a text transcription.
 
 3. **Analyzing Text with ChatGPT**  
-   The transcribed text is sent to the OpenAI API. ChatGPT analyzes the message, extracts the date, time, and event description, and returns the result in the format:  
-   `yyyy-MM-dd HH:mm Keyword. Description`.
+   The transcribed text is sent to the OpenAI API. ChatGPT analyzes the message, extracts the date, time, and event description, and returns the result.
 
 4. **User Confirmation**  
    The bot sends the result to the user as a text message for confirmation. The user can either confirm or cancel.
@@ -41,7 +39,6 @@ The bot follows these steps to process voice messages and create events in Googl
    The bot saves authorization tokens and other user-specific data in the database to handle future requests.
 
 ### Workflow Diagram
-
 ```mermaid
 graph TD;
     A[User sends a voice message] --> B[Bot downloads the voice file using Telegram API];
@@ -51,7 +48,6 @@ graph TD;
     E --> F{Does the user confirm the event?};
     F -- Yes --> G[Event is created in Google Calendar];
     F -- No --> H[Event creation is cancelled];
-    G --> I[Data is saved in the database];
 
 ```
 
