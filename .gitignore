@@ -2,6 +2,5 @@ target/
 resources/
 .vscode/
 src/main/resources/
-voice.ogg
+src/main/resources/config
 tokens/
-config.properties
