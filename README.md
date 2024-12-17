@@ -51,7 +51,8 @@ graph TD;
     E --> F{Does the user confirm the event?};
     F -- Yes --> G[Event is created in Google Calendar];
     F -- No --> H[Event creation is cancelled];
-    G --> I[Data is saved in the database].
+    G --> I[Data is saved in the database];
+
 ```
 
 ## Getting Started
