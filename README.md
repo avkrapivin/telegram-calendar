@@ -9,6 +9,7 @@ Telegram bot for creating events in Google calendar using text and audio message
 - <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/OpenAI_Logo.svg/1920px-OpenAI_Logo.svg.png" alt="OpenAI API" width="40" height="20"/> OpenAI API
 - <img src="https://raw.githubusercontent.com/devicons/devicon/ca28c779441053191ff11710fe24a9e6c23690d6/icons/json/json-original.svg" alt="JSON" width="30" height="30"/> JSON
 - <img src="https://raw.githubusercontent.com/devicons/devicon/ca28c779441053191ff11710fe24a9e6c23690d6/icons/spring/spring-original.svg" alt="Spring Core" width="30" height="30"/> Spring Core
+- <img src="https://spring.io/img/projects/spring-boot.svg" alt="Spring Boot" width="30" height="30"/> Spring Boot
 - <img src="https://spring.io/img/projects/spring-data.svg" alt="Spring Data" width="30" height="30"/> Spring Data
 - <img src="https://raw.githubusercontent.com/devicons/devicon/ca28c779441053191ff11710fe24a9e6c23690d6/icons/postgresql/postgresql-original.svg" alt="PostgreSQL" width="30" height="30"/> PostgreSQL
 - <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Amazon_Web_Services_Logo.svg/1280px-Amazon_Web_Services_Logo.svg.png" alt="Maven" width="30" height="30"/> AWS: EC2 + RDS
