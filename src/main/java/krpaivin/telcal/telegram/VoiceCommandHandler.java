@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
 
 import krpaivin.telcal.chatgpt.ChatGPTHadler;
 import krpaivin.telcal.chatgpt.TypeGPTRequest;
-import krpaivin.telcal.config.TelegramBotConfig;
+import krpaivin.telcal.config.TelegramProperties;
 
 /**
  * Handles voice command processing, including converting voice input to text
@@ -31,6 +31,7 @@ import krpaivin.telcal.config.TelegramBotConfig;
 @Component
 public class VoiceCommandHandler {
     private final ChatGPTHadler chatGPTHadler;
+    private final TelegramProperties telegramProperties;
 
     /**
      * Converts a voice audio file located at the specified URL to text using AssemblyAI.
@@ -57,7 +58,7 @@ public class VoiceCommandHandler {
             String uploadUrl = uploadAudioFile(inputStream);
 
             var client = AssemblyAI.builder()
-                    .apiKey(TelegramBotConfig.getAssemblyAI())
+                    .apiKey(telegramProperties.getAssemblyAI())
                     .build();
 
             var params = TranscriptOptionalParams.builder()
@@ -88,13 +89,13 @@ public class VoiceCommandHandler {
     private String uploadAudioFile(InputStream audioInputStream) throws IOException {
         URL url;
         try {
-            url = new URI(TelegramBotConfig.getAssemblyAIURL()).toURL();
+            url = new URI(telegramProperties.getAssemblyAIURL()).toURL();
         } catch (URISyntaxException e) {
-            throw new IllegalArgumentException("Invalid URL format: " + TelegramBotConfig.getAssemblyAIURL(), e);
+            throw new IllegalArgumentException("Invalid URL format: " + telegramProperties.getAssemblyAIURL(), e);
         }
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("POST");
-        connection.setRequestProperty("authorization", TelegramBotConfig.getAssemblyAI());
+        connection.setRequestProperty("authorization", telegramProperties.getAssemblyAI());
         connection.setRequestProperty("Content-Type", "application/octet-stream");
         connection.setDoOutput(true);
 

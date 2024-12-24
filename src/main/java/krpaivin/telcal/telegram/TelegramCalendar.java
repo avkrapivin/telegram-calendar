@@ -28,7 +28,7 @@ import krpaivin.telcal.chatgpt.TypeGPTRequest;
 import krpaivin.telcal.config.CalendarData;
 import krpaivin.telcal.config.Constants;
 import krpaivin.telcal.config.Messages;
-import krpaivin.telcal.config.TelegramBotConfig;
+import krpaivin.telcal.config.TelegramProperties;
 import krpaivin.telcal.config.UserCalendar;
 import krpaivin.telcal.data.UserAuthData;
 
@@ -42,6 +42,7 @@ public class TelegramCalendar extends TelegramLongPollingBot {
     private final Cache<String, UserCalendar> calendarSelectionCache;
     private final VoiceCommandHandler voiceCommandHandler;
     private final CalendarDataService calendarDataService;
+    private final TelegramProperties telegramProperties;
 
     @Override
     public String getBotUsername() {
@@ -50,7 +51,7 @@ public class TelegramCalendar extends TelegramLongPollingBot {
 
     @Override
     public String getBotToken() {
-        return TelegramBotConfig.getBotToken();
+        return telegramProperties.getBotToken();
     }
 
     @Override
@@ -218,8 +219,8 @@ public class TelegramCalendar extends TelegramLongPollingBot {
      *         false otherwise.
      */
     private boolean isBotInMaintenanceMode(String userId) {
-        return TelegramBotConfig.getMaintenanceMode().equals("true")
-                && !userId.equals(TelegramBotConfig.getUserOneId());
+        return telegramProperties.getMaintenanceMode().equals("true")
+                && !userId.equals(telegramProperties.getUserOneId());
     }
 
     /**
@@ -688,7 +689,7 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         GetFile getFile = new GetFile();
         getFile.setFileId(fileId);
         File telegramFile = execute(getFile);
-        return Messages.PATH_TG_API + TelegramBotConfig.getBotToken() + "/" + telegramFile.getFilePath();
+        return Messages.PATH_TG_API + telegramProperties.getBotToken() + "/" + telegramFile.getFilePath();
     }
 
 }

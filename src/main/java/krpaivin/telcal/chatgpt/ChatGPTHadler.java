@@ -20,7 +20,7 @@ import lombok.RequiredArgsConstructor;
 
 import krpaivin.telcal.config.Constants;
 import krpaivin.telcal.config.Messages;
-import krpaivin.telcal.config.TelegramBotConfig;
+import krpaivin.telcal.config.TelegramProperties;
 import krpaivin.telcal.data.UserAuthData;
 
 /**
@@ -32,6 +32,7 @@ import krpaivin.telcal.data.UserAuthData;
 public class ChatGPTHadler {
 
     private final UserAuthData userAuthData;
+    private final TelegramProperties telegramProperties;
 
     /**
      * Gets a response from ChatGPT based on the provided voice text, request type,
@@ -69,10 +70,10 @@ public class ChatGPTHadler {
     protected String getResponseFromChatGPT(String voiceText, TypeGPTRequest typeGPTRequest, String userId) {
         try {
             // Connect to ChatGPT API to get response
-            URL url = new URI(TelegramBotConfig.getOpenAIURL()).toURL();
+            URL url = new URI(telegramProperties.getOpenAIURL()).toURL();
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("POST");
-            connection.setRequestProperty("Authorization", "Bearer " + TelegramBotConfig.getOpenAIKey());
+            connection.setRequestProperty("Authorization", "Bearer " + telegramProperties.getOpenAIKey());
             connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
             connection.setDoOutput(true);
 
@@ -130,7 +131,7 @@ public class ChatGPTHadler {
         } catch (JSONException e) {
             throw new JSONException(Messages.ERROR_JSON_GPT);
         } catch (URISyntaxException e) {
-            throw new IllegalArgumentException(Messages.INVALID_URL + TelegramBotConfig.getOpenAIURL(), e);
+            throw new IllegalArgumentException(Messages.INVALID_URL + telegramProperties.getOpenAIURL(), e);
         } catch (IOException e) {
             throw new IllegalArgumentException(Messages.ERROR_RECEIVING_GPT + e.getMessage());
         }
