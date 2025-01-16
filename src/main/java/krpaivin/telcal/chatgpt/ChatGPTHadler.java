@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.stream.Collectors;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -101,22 +102,20 @@ public class ChatGPTHadler {
                     "\"top_p\": 1.0}";
 
             // Get a response from ChatGPT
-            OutputStream os = connection.getOutputStream();
-            byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
-            os.write(input, 0, input.length);
-
-            // Read a response from ChatGPT
-            BufferedReader in = new BufferedReader(
-                    new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8));
-            StringBuilder response = new StringBuilder();
-            String line;
-
-            while ((line = in.readLine()) != null) {
-                response.append(line);
+            try (OutputStream os = connection.getOutputStream()) {
+                byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
+                os.write(input, 0, input.length);
             }
 
-            os.close();
-            in.close();
+            // Read a response from ChatGPT
+            StringBuilder response = new StringBuilder();
+            try (BufferedReader in = new BufferedReader(
+                    new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = in.readLine()) != null) {
+                    response.append(line);
+                }
+            }
 
             // Process JSON response
             String jsonResponse = response.toString();
@@ -222,6 +221,7 @@ public class ChatGPTHadler {
         LocalDateTime today = LocalDateTime.now();
         String todayStr = today.format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
         String nextDayStr = today.plusDays(1).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
+        //String todayNextYearStr = today.plusYears(1).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
         String currentYear = today.format(DateTimeFormatter.ofPattern(Constants.YEAR_PATTERN));
         String nextYear = today.plusYears(1).format(DateTimeFormatter.ofPattern(Constants.YEAR_PATTERN));
         String keywords = userAuthData.getKeywords(userId);
@@ -237,18 +237,18 @@ public class ChatGPTHadler {
             keywordExists = true;
         }
         res.append(" 'description'. ")
-                .append("If the year is not specified in the original text and the date you specify may be greater than ")
-                .append(todayStr).append(" , then the ")
-                .append(currentYear).append(" is set. Otherwise, the year ").append(nextYear).append(" is set. ")
-                .append("The month can be specified as a number or a word. ")
-                .append("If the date is not explicitly set in the past, then the date you set must be greater then  ")
-                .append(todayStr).append(". The date can be specified in free form. ")
+                .append(". In the source text, the date can be specified in free form. ")
                 .append("For example: tomorrow, tomorrow at eight, the day after tomorrow, some day this week and the next, etc. ")
                 .append("The date specified in this way is counted from the current day equal to ")
                 .append(todayStr).append(" and time from the source text. ")
+                .append("If the year is not specified in the source text and the date you specify may be greater than ")
+                .append(todayStr).append(" and less than 01.01.").append(nextYear).append(" , then the ")
+                .append(currentYear).append(" is set. Otherwise, the year ").append(nextYear).append(" is set. ")
+                .append("The month can be specified as a number or a word. ")
+                .append("If the date is not explicitly set in the past, then the date you set must be greater then  ").append(todayStr)
                 .append("If the date is missing or could not be determined, then it is necessary to set the date equal to ")
                 .append(nextDayStr).append(" and time from the source text. ")
-                .append("The time can be specified in a free form. ")
+                .append("In the source text, the time can be specified in a free form. ")
                 .append("For example: at eight, at ten in the evening, at nineteen zero zero, 10, etc.")
                 .append("If you could not determine the time in the source text, then set the time to 09:00. ")
                 .append("Duration is the number of minutes that indicates how long the event will last. ")
@@ -275,10 +275,10 @@ public class ChatGPTHadler {
                     .append(defaultKeyword).append(". ");
         }
         res.append(". 'Description' is the remaining text without date and duration. ")
-                .append("If there is a keyword in the source text, then ")
-                .append("answer in the format: 'yyyy-MM-dd HH:mm / Duration=mm / Keyword. Description'.")
-                .append("If there is no keyword in the source text, then ")
-                .append("answer another format: 'yyyy-MM-dd HH:mm / Duration=mm / Description'. ")
+                .append("If there is a keyword in the source text, the answer you provide ")
+                .append("should be in this format: 'yyyy-MM-dd HH:mm / Duration=mm / Keyword. Description'.")
+                .append("If there is no keyword in the source text, the answer you provide ")
+                .append("should be in this format: 'yyyy-MM-dd HH:mm / Duration=mm / Description'. ")
                 .append("There is no need to display the word 'Description'. ")
                 .append("Here is the source text: ").append(voiceText);
         return res.toString();

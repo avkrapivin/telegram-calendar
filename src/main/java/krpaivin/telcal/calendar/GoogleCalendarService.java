@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -75,11 +76,9 @@ public class GoogleCalendarService {
             throws GeneralSecurityException, IOException {
 
         final NetHttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-        Map<String, String> mapCredentials = userAuthData.getCredentialFromData(userId);
 
-        if (mapCredentials == null) {
-            throw new IllegalStateException(Messages.ERROR_ACCESSING_CALENDAR);
-        }
+        Map<String, String> mapCredentials = Optional.ofNullable(userAuthData.getCredentialFromData(userId))
+                    .orElseThrow(() -> new IllegalStateException(Messages.ERROR_ACCESSING_CALENDAR));
 
         String calendarId = mapCredentials.get(userId + Constants.BD_FIELD_CALENDAR);
         Credential credential = getCredentialWithToken(userId, httpTransport, mapCredentials);
@@ -173,11 +172,9 @@ public class GoogleCalendarService {
         DateTime end = new DateTime(endDateTime.toString() + ":59Z");
 
         final NetHttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-        Map<String, String> mapCredentials = userAuthData.getCredentialFromData(userId);
 
-        if (mapCredentials == null) {
-            throw new IllegalStateException(Messages.ERROR_ACCESSING_CALENDAR);
-        }
+        Map<String, String> mapCredentials = Optional.ofNullable(userAuthData.getCredentialFromData(userId))
+                    .orElseThrow(() -> new IllegalStateException(Messages.ERROR_ACCESSING_CALENDAR));
 
         String calendarId = mapCredentials.get(userId + Constants.BD_FIELD_CALENDAR);
         Credential credential = getCredentialWithToken(userId, httpTransport, mapCredentials);
@@ -248,11 +245,9 @@ public class GoogleCalendarService {
         String result = "Events found: \n";
 
         final NetHttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-        Map<String, String> mapCredentials = userAuthData.getCredentialFromData(userId);
 
-        if (mapCredentials == null) {
-            throw new IllegalStateException(Messages.ERROR_ACCESSING_CALENDAR);
-        }
+        Map<String, String> mapCredentials = Optional.ofNullable(userAuthData.getCredentialFromData(userId))
+                .orElseThrow(() -> new IllegalStateException(Messages.ERROR_ACCESSING_CALENDAR));
 
         String calendarId = mapCredentials.get(userId + Constants.BD_FIELD_CALENDAR);
         Credential credential = getCredentialWithToken(userId, httpTransport, mapCredentials);

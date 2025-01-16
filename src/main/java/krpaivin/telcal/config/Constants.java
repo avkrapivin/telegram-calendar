@@ -15,7 +15,7 @@ public final class Constants {
     public static final String TOKENS_DIRECTORY_PATH = "tokens";
     public static final List<String> SCOPES = Collections.singletonList(CalendarScopes.CALENDAR);
     public static final String CREDENTIALS_FILE_PATH = "config/credentials.json";
-    public static final String GPT_MODEL = "gpt-4o-mini";
+    public static final String GPT_MODEL = "gpt-4o";
     public static final String OAUTH_PATH_TOKEN = "https://oauth2.googleapis.com/token";
 
     public static final String BUTTON_CONFIRM_EVENT = "confirm_event";
