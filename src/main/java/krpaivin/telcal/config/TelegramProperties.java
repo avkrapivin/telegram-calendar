@@ -16,4 +16,5 @@ public class TelegramProperties {
     private String openAIURL;
     private String maintenanceMode;
     private String userOneId;
+    private String adminChatid;
 }

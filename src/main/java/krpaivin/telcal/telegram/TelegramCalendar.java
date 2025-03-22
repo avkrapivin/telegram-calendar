@@ -21,6 +21,8 @@ import org.telegram.telegrambots.meta.api.objects.File;
 
 import org.springframework.stereotype.Component;
 import com.github.benmanes.caffeine.cache.Cache;
+import com.google.api.client.auth.oauth2.TokenResponseException;
+
 import lombok.RequiredArgsConstructor;
 
 import krpaivin.telcal.calendar.GoogleCalendarService;
@@ -102,11 +104,30 @@ public class TelegramCalendar extends TelegramLongPollingBot {
             case Constants.BUTTON_CLEAR_ALL_KEYWORDS:
                 clearAllKeywordsRequest(chatId, userId);
                 break;
+            case Constants.BUTTON_SUBMIT:
+                sendSubmitRequest(chatId);
+                break;
             default:
                 if (callbackQuery.getData().startsWith("Calendar/")) {
                     setUserCalendar(chatId, userId, callbackQuery.getData());
                 }
         }
+    }
+
+    /**
+     * Sends a request for the user to submit their Gmail address.
+     *
+     * This method updates the session data cache for the specified user
+     * by storing the current state as 'REQUEST_SUBMIT'. It then sends a
+     * response message to the user, prompting them to provide their
+     * Gmail address.
+     *
+     * @param chatId The unique identifier of the user (chat) to whom the
+     *               request message will be sent.
+     */
+    private void sendSubmitRequest(String chatId) {
+        sessionDataCache.put(chatId + Constants.STATE, Constants.REQUEST_SUBMIT);
+        sendResponseMessage(chatId, Messages.SEND_YOUR_GMAIL_ADDRESS);
     }
 
     /**
@@ -133,6 +154,8 @@ public class TelegramCalendar extends TelegramLongPollingBot {
             calendarDataService.createCalendarEvent(eventDetails[0], eventDetails[1], eventDetails[2], eventDetails[3],
                     userId);
             sendResponseMessage(chatId, Messages.EVENT_CREATED);
+        } catch (TokenResponseException e) {
+            sendResponseMessage(chatId, Messages.ERROR_INVALID_TOKEN);
         } catch (Exception e) {
             sendResponseMessage(chatId, Messages.ERROR_CREATING_EVENT);
         }
@@ -286,9 +309,63 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         } else if (Constants.REQUEST_COMPOUND_KEYWORDS
                 .equals(sessionDataCache.getIfPresent(chatId + Constants.STATE))) {
             processSetCompoundKeywordsRequest(messageText, chatId, userId);
+        } else if (Constants.REQUEST_SUBMIT.equals(sessionDataCache.getIfPresent(chatId + Constants.STATE))) {
+            sendSubmitRequest(messageText, chatId, userId);
+        } else if (messageText.startsWith(Messages.SUMBIT_RESPONSE) && userId.equals(telegramProperties.getUserOneId())) {
+            sendSubmitResponse(messageText);
         } else {
             requestEventCreation(messageText, chatId, userId);
         }
+    }
+
+    /**
+     * Sends a response based on the user's reply to a previous request.
+     *
+     * This method takes a message containing the user's chat ID and their
+     * response (either "ok" or "no"). Depending on the user's reply, it sends
+     * an appropriate response message to the user. If the reply is "ok",
+     * a success message is sent; if "no", a denial message is sent.
+     * If the reply is anything else, that reply is sent as the response.
+     *
+     * @param messageText The text message received from the user, expected to
+     *                    contain the chat ID and the user's response in the
+     *                    format: "<command> <userChatId> <replyMessage>".
+     */
+    private void sendSubmitResponse(String messageText) {
+        String[] parts = messageText.split(" ", 3);
+        if (parts.length == 3) {
+            String userChatId = (parts[1].strip());
+            String replyMessage = parts[2].strip();
+            if ("ok".equals(replyMessage)) {
+                sendResponseMessage(userChatId, Messages.ACCESS_SUCCESSFUL);
+            } else if ("no".equals(replyMessage)) {
+                sendResponseMessage(userChatId, Messages.ACCESS_DENIED);
+            } else {
+                sendResponseMessage(userChatId, replyMessage);
+            }
+        }
+    }
+
+    /**
+     * Sends a notification of a new request to the administrator.
+     *
+     * This method invalidates the current state for the specified chat ID
+     * and sends a notification message to the administrator containing
+     * details about the new request. The message includes the user's ID,
+     * chat ID, and the content of the message submitted by the user.
+     *
+     * @param messageText The text message submitted by the user, which will
+     *                    be included in the notification to the administrator.
+     * @param chatId      The unique identifier of the user's chat, used for
+     *                    tracking the session state.
+     * @param userId      The unique identifier of the user making the request,
+     *                    used to identify the requester in the notification.
+     */
+    private void sendSubmitRequest(String messageText, String chatId, String userId) {
+        sessionDataCache.invalidate(chatId + Constants.STATE);
+
+        sendResponseMessage(telegramProperties.getAdminChatid(),
+                "New request. User id: " + userId + ". Chat id: " + chatId + ". Message: " + messageText);
     }
 
     /**
@@ -355,6 +432,10 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
 
+        InlineKeyboardButton submitButton = new InlineKeyboardButton();
+        submitButton.setText(Messages.BUTTON_SUBMIT);
+        submitButton.setCallbackData(Constants.BUTTON_SUBMIT);
+
         InlineKeyboardButton allSettingsButton = new InlineKeyboardButton();
         allSettingsButton.setText(Messages.BUTTON_SETTINGS);
         allSettingsButton.setCallbackData(Constants.BUTTON_ALL_SETTINGS);
@@ -379,6 +460,7 @@ public class TelegramCalendar extends TelegramLongPollingBot {
         clearAllKeywordsButton.setText(Messages.BUTTON_CLEAR_KEYWORDS);
         clearAllKeywordsButton.setCallbackData(Constants.BUTTON_CLEAR_ALL_KEYWORDS);
 
+        buttons.add(Arrays.asList(submitButton));
         buttons.add(Arrays.asList(allSettingsButton, cancelButton));
         buttons.add(Arrays.asList(keywordsButton, defaultKeywordButton, compoundKeywordsButton));
         buttons.add(Arrays.asList(clearAllKeywordsButton));

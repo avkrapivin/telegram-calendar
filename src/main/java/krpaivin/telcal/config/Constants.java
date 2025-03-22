@@ -26,6 +26,7 @@ public final class Constants {
     public static final String BUTTON_DEFAULT_KEYWORD = "default_keyword";
     public static final String BUTTON_COMPOUND_KEYWORDS = "compound_keywords";
     public static final String BUTTON_CLEAR_ALL_KEYWORDS = "clear_all_keywords";
+    public static final String BUTTON_SUBMIT = "request_access";
 
     public static final String REQUEST_ANALYTICS = "analytics";
     public static final String REQUEST_SEARCH = "search";
@@ -35,7 +36,9 @@ public final class Constants {
     public static final String REQUEST_COMPOUND_KEYWORDS = "compound_keywords";
     public static final String REQUEST_DEFAULT_KEYWORDS = "default_keyword";
     public static final String REQUEST_KEYWORDS = "keywords";
+    public static final String REQUEST_SUBMIT = "submit";
     public static final String STATE = "_state";
+    public static final String SUMBIT = "_submit";
 
     public static final String BD_FIELD_CALENDAR = "_calendar";
     public static final String BD_FIELD_ACCESS_TOKEN = "_accessToken";

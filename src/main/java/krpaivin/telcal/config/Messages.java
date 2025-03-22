@@ -1,5 +1,7 @@
 package krpaivin.telcal.config;
 
+import lombok.NonNull;
+
 public class Messages {
     private Messages() {}
 
@@ -16,12 +18,14 @@ public class Messages {
     public static final String BUTTON_DEFAULT_KEYWORD = "Default keyword";
     public static final String BUTTON_COMP_KEYWORDS = "Compound keywords";
     public static final String BUTTON_CLEAR_KEYWORDS = "Clear all keywords";
+    public static final String BUTTON_SUBMIT = "Request Access (Processing Time Required)";
 
     public static final String ANALYTICS = "/analytics";
     public static final String SEARCH = "/search";
     public static final String HELP = "/help";
     public static final String START = "/start";
     public static final String SETTING = "/setting";
+    public static final String SUMBIT_RESPONSE = "/submit_response";
 
     public static final String OPERATION_CANCEL = "Operation canceled";
     public static final String REQUEST = "Your request: ";
@@ -32,6 +36,7 @@ public class Messages {
     public static final String SELECT_CALENDAR = "Select a calendar:";
     public static final String FOLLOW_LINK = "Follow the link, copy the code and send it to the bot";
     public static final String EVENT_CREATED = "Event created in Google Calendar.";
+    public static final String SEND_YOUR_GMAIL_ADDRESS = "Send your Gmail address:";
 
     public static final String REQUEST_ANALYTICST = "Send message with period and keyword (optional)";
     public static final String REQUEST_SEARCH = "Send message with period, keyword (optional) and type search (optional).";
@@ -51,6 +56,8 @@ public class Messages {
     public static final String DEFAULT_KEYWORD_SUCCESS = "Default keyword access has been successfully configured.";
     public static final String KEYWORDS_SUCCESS = "Keywords access has been successfully configured.";
     public static final String KEYWORDS_CLEANED = "All keywords were successfully cleaned.";
+    public static final String ACCESS_SUCCESSFUL = "Access has been successfully granted.";
+    public static final String ACCESS_DENIED = "Access has been denied.";
 
     public static final String ERROR = "Error";
     public static final String ERROR_CREATING_EVENT = "Error creating event in calendar.";
@@ -69,6 +76,7 @@ public class Messages {
     public static final String ERROR_JSON_GPT = "Error processing JSON response from ChatGPT.";
     public static final String ERROR_RECEIVING_GPT = "Error receiving response from ChatGPT.";
     public static final String ERROR_ACCESSING_CALENDAR = "Error accessing calendar";
+    public static final String ERROR_INVALID_TOKEN = "Token is invalid. Re-authorization required. Press /setting - Connection settings";
 
     public static final String INCORRECT_MESSAGE_FORMAT = "Incorrect message format.";
     public static final String FAILD_LOAD_CREDENTIALS = "Failed to load credentials from ";
