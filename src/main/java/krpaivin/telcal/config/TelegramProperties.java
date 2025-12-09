@@ -7,7 +7,7 @@ import lombok.Data;
 
 @Data
 @Component
-@ConfigurationProperties
+@ConfigurationProperties(prefix = "")
 public class TelegramProperties {
     private String botToken;
     private String assemblyAI; 

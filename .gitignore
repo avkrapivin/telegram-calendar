@@ -4,3 +4,8 @@ resources/
 src/main/resources/
 src/main/resources/config
 tokens/
+.infra/
+infra/
+README_IMPROVEMENTS_EN.md
+README_IMPROVEMENTS.md
+Dockerfile

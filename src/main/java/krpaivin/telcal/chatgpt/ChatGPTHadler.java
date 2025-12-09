@@ -2,6 +2,7 @@ package krpaivin.telcal.chatgpt;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -70,11 +71,17 @@ public class ChatGPTHadler {
      */
     protected String getResponseFromChatGPT(String voiceText, TypeGPTRequest typeGPTRequest, String userId) {
         try {
+            // Check if OpenAI API key is configured
+            String apiKey = telegramProperties.getOpenAIKey();
+            if (apiKey == null || apiKey.trim().isEmpty()) {
+                throw new IllegalArgumentException("OpenAI API key is not configured. Check application.properties: openAIKey");
+            }
+
             // Connect to ChatGPT API to get response
             URL url = new URI(telegramProperties.getOpenAIURL()).toURL();
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("POST");
-            connection.setRequestProperty("Authorization", "Bearer " + telegramProperties.getOpenAIKey());
+            connection.setRequestProperty("Authorization", "Bearer " + apiKey.trim());
             connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
             connection.setDoOutput(true);
 
@@ -95,11 +102,12 @@ public class ChatGPTHadler {
                 throw new IOException(Messages.UNKNOWN_REQUEST_GPT);
             }
 
-            String jsonInputString = "{\"model\": \"" + Constants.GPT_MODEL + "\", " +
+            String modelName = Constants.GPT_MODEL;
+            boolean isNewModel = modelName.startsWith("gpt-5");
+
+            String jsonInputString = "{\"model\": \"" + modelName + "\", " +
                     "\"messages\": [{\"role\": \"user\", \"content\": \"" + prompt + "\"}], " +
-                    "\"temperature\": 0.7, " +
-                    "\"max_tokens\": 150, " +
-                    "\"top_p\": 1.0}";
+                    (isNewModel ? "\"max_completion_tokens\": 150}" : "\"temperature\": 0.7, \"max_tokens\": 150, \"top_p\": 1.0}");
 
             // Get a response from ChatGPT
             try (OutputStream os = connection.getOutputStream()) {
@@ -107,14 +115,54 @@ public class ChatGPTHadler {
                 os.write(input, 0, input.length);
             }
 
-            // Read a response from ChatGPT
+            // Check response code before reading
+            int responseCode = connection.getResponseCode();
+            
+            // Read response (success or error)
             StringBuilder response = new StringBuilder();
+            InputStream inputStream;
+            
+            try {
+                // Try to get inputStream (for successful responses)
+                inputStream = connection.getInputStream();
+            } catch (IOException e) {
+                // If it is not possible to get inputStream, then it is an error - read from errorStream
+                inputStream = connection.getErrorStream();
+            }
+                
+            // If errorStream is also null, then there is a problem with the connection
+            if (inputStream == null) {
+                throw new IOException("Failed to get response from OpenAI API. HTTP Code: " + responseCode);
+            }
+            
             try (BufferedReader in = new BufferedReader(
-                    new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+                    new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = in.readLine()) != null) {
                     response.append(line);
                 }
+            }
+
+            String responseBody = response.toString();
+            
+            // If error response, throw exception with error message
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                // Try to parse JSON error for a more understandable message
+                String errorMessage;
+                try {
+                    JSONObject errorJson = new JSONObject(responseBody);
+                    if (errorJson.has("error")) {
+                        JSONObject error = errorJson.getJSONObject("error");
+                        errorMessage = "HTTP " + responseCode + ": " + 
+                                error.optString("message", responseBody) + 
+                                " (type: " + error.optString("type", "unknown") + ")";
+                    } else {
+                        errorMessage = "HTTP " + responseCode + ": " + responseBody;
+                    }
+                } catch (JSONException e) {
+                    errorMessage = "HTTP " + responseCode + ": " + responseBody;
+                }
+                throw new IOException(errorMessage);
             }
 
             // Process JSON response
@@ -132,7 +180,8 @@ public class ChatGPTHadler {
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException(Messages.INVALID_URL + telegramProperties.getOpenAIURL(), e);
         } catch (IOException e) {
-            throw new IllegalArgumentException(Messages.ERROR_RECEIVING_GPT + e.getMessage());
+            String errorMsg = Messages.ERROR_RECEIVING_GPT + " " + e.getMessage();
+            throw new IllegalArgumentException(errorMsg, e);
         }
     }
 
@@ -221,7 +270,8 @@ public class ChatGPTHadler {
         LocalDateTime today = LocalDateTime.now();
         String todayStr = today.format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
         String nextDayStr = today.plusDays(1).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
-        //String todayNextYearStr = today.plusYears(1).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
+        // String todayNextYearStr =
+        // today.plusYears(1).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
         String currentYear = today.format(DateTimeFormatter.ofPattern(Constants.YEAR_PATTERN));
         String nextYear = today.plusYears(1).format(DateTimeFormatter.ofPattern(Constants.YEAR_PATTERN));
         String keywords = userAuthData.getKeywords(userId);
@@ -245,7 +295,8 @@ public class ChatGPTHadler {
                 .append(todayStr).append(" and less than 01.01.").append(nextYear).append(" , then the ")
                 .append(currentYear).append(" is set. Otherwise, the year ").append(nextYear).append(" is set. ")
                 .append("The month can be specified as a number or a word. ")
-                .append("If the date is not explicitly set in the past, then the date you set must be greater then  ").append(todayStr)
+                .append("If the date is not explicitly set in the past, then the date you set must be greater then  ")
+                .append(todayStr)
                 .append("If the date is missing or could not be determined, then it is necessary to set the date equal to ")
                 .append(nextDayStr).append(" and time from the source text. ")
                 .append("In the source text, the time can be specified in a free form. ")
