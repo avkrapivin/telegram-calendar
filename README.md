@@ -169,8 +169,12 @@ telegram-calendar-base/
 │   │   └── resources/
 │   │       ├── application.properties
 │   │       └── config/
-│   │           └── credentials.json
+│   │           └── credentials.json  # Not in git (.gitignore)
 │   └── test/
+├── infra/                          # AWS CloudFormation templates
+│   ├── telegram-calendar-docker.yaml  # Full stack: EC2 + Docker + RDS
+│   └── telegram-calendar-rds.yaml    # RDS only (optional)
+├── Dockerfile                      # Multi-stage Docker build
 └── pom.xml
 ```
 
@@ -249,6 +253,8 @@ Other users will receive an unavailability message.
 5. Rename to `credentials.json` and place in `src/main/resources/config/`
 6. Add your Gmail to Test Users in the project
 
+**Important:** The `credentials.json` file is in `.gitignore` and will not be committed to the repository. For AWS deployment, you need to upload this file separately to the EC2 instance (see AWS Deployment section).
+
 ### Database Structure
 
 `user_data` table:
@@ -319,56 +325,214 @@ java -jar target/telegram-calendar-1.0-SNAPSHOT.jar
 
 ### AWS Deployment
 
-The project is configured for deployment on AWS:
-- **EC2** - for running the application
+The project is configured for deployment on AWS using **Docker** and **CloudFormation**:
+- **EC2** - for running the application in Docker container
 - **RDS** - for PostgreSQL database
+- **CloudFormation** - for infrastructure as code
 
-#### Steps:
+#### Prerequisites
 
-1. **Create RDS PostgreSQL instance**
-   - Note the endpoint, port, database name
-   - Configure Security Group for access from EC2
+1. **AWS CLI** installed and configured
+2. **AWS Account** with appropriate permissions
+3. **EC2 Key Pair** for SSH access
+4. **GitHub repository** with the project code
 
-2. **Create EC2 instance**
-   - Choose Amazon Linux 2 or Ubuntu
-   - Install Java 17
-   - Configure Security Group for internet access
+#### Deployment Steps
 
-3. **Upload the application**
+##### 1. Prepare CloudFormation Template
+
+The CloudFormation template is located in `infra/telegram-calendar-docker.yaml`. It includes:
+- EC2 instance with Docker
+- RDS PostgreSQL database
+- Security Groups
+- IAM Roles
+- Automatic deployment via git clone and docker build
+
+**Important parameters in the template:**
+- `GitRepoUrl` - Your GitHub repository URL
+- `BotToken`, `OpenAIKey`, `AssemblyAIKey` - API keys
+- `VpcId`, `PublicSubnetId`, `DbSubnet1`, `DbSubnet2` - Network configuration
+- `KeyName` - EC2 Key Pair name
+
+##### 2. Validate CloudFormation Template
+
 ```bash
-# On EC2 instance
-scp telegram-calendar-1.0-SNAPSHOT.jar user@ec2-instance:/path/
-scp credentials.json user@ec2-instance:/path/
+aws cloudformation validate-template \
+  --template-body file://infra/telegram-calendar-docker.yaml \
+  --region us-east-1
 ```
 
-4. **Create systemd service** (optional)
+##### 3. Create Change Set
 
-`/etc/systemd/system/telegram-calendar.service`:
-```ini
-[Unit]
-Description=Telegram Calendar Bot
-After=network.target
-
-[Service]
-Type=simple
-User=ec2-user
-WorkingDirectory=/opt/telegram-calendar
-ExecStart=/usr/bin/java -jar telegram-calendar-1.0-SNAPSHOT.jar
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-5. **Start the service**
 ```bash
-sudo systemctl start telegram-calendar
-sudo systemctl enable telegram-calendar
+aws cloudformation create-change-set \
+  --stack-name telegram-calendar-docker \
+  --change-set-name telegram-calendar-docker-initial \
+  --change-set-type CREATE \
+  --template-body file://infra/telegram-calendar-docker.yaml \
+  --capabilities CAPABILITY_IAM \
+  --region us-east-1
 ```
 
-### Configuration
+##### 4. Execute Change Set
 
-All settings are stored in `application.properties`.
+```bash
+aws cloudformation execute-change-set \
+  --stack-name telegram-calendar-docker \
+  --change-set-name telegram-calendar-docker-initial \
+  --region us-east-1
+```
+
+##### 5. Wait for Stack Creation
+
+```bash
+aws cloudformation wait stack-create-complete \
+  --stack-name telegram-calendar-docker \
+  --region us-east-1
+```
+
+##### 6. Get Stack Outputs
+
+```bash
+aws cloudformation describe-stacks \
+  --stack-name telegram-calendar-docker \
+  --query "Stacks[0].Outputs" \
+  --region us-east-1
+```
+
+This will return:
+- `PublicIP` - EC2 instance public IP
+- `RdsEndpoint` - RDS database endpoint
+- `InstanceId` - EC2 instance ID
+
+##### 7. Create Database Table
+
+Connect to EC2 and then to RDS:
+
+```bash
+# SSH to EC2
+ssh -i <path-to-key>.pem ec2-user@<PublicIP>
+
+# Install PostgreSQL client
+sudo yum install -y postgresql15
+
+# Connect to RDS and create table
+PGPASSWORD='<db-password>' psql -h <RdsEndpoint> -p 5432 -d db_calendar -U postgres
+```
+
+In psql, execute:
+
+```sql
+CREATE TABLE user_data (
+    id BIGSERIAL PRIMARY KEY,
+    user_id TEXT NOT NULL UNIQUE,
+    version BIGINT DEFAULT 0,
+    access_token TEXT,
+    refresh_token TEXT,
+    expiration_time_token TEXT,
+    calendar TEXT,
+    keywords TEXT,
+    default_keyword TEXT,
+    compound_keywords TEXT
+);
+```
+
+##### 8. Upload credentials.json
+
+The `credentials.json` file is not in the repository (`.gitignore`). Upload it to EC2:
+
+```bash
+# Create directory
+ssh -i <path-to-key>.pem ec2-user@<PublicIP> "mkdir -p /home/ec2-user/app/src/main/resources/config"
+
+# Upload file
+scp -i <path-to-key>.pem \
+  src/main/resources/config/credentials.json \
+  ec2-user@<PublicIP>:/home/ec2-user/app/src/main/resources/config/credentials.json
+```
+
+##### 9. Rebuild and Restart Docker Container
+
+On EC2 instance:
+
+```bash
+cd /home/ec2-user/app
+docker stop telegram-calendar-backend
+docker rm telegram-calendar-backend
+docker build -t telegram-calendar-backend .
+docker run -d --name telegram-calendar-backend --restart always \
+  -e BOT_TOKEN=<your-bot-token> \
+  -e ASSEMBLYAI=<your-assemblyai-key> \
+  -e OPENAIKEY=<your-openai-key> \
+  -e OPENAIURL=https://api.openai.com/v1/chat/completions \
+  -e ASSEMBLYAIURL=https://api.assemblyai.com/v2/upload \
+  -e MAINTENANCEMODE=false \
+  -e USERONEID=<your-telegram-username> \
+  -e ADMINCHATID=<your-admin-chat-id> \
+  -e CALENDARID=<your-calendar-id> \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://<RdsEndpoint>:5432/db_calendar \
+  -e SPRING_DATASOURCE_USERNAME=postgres \
+  -e SPRING_DATASOURCE_PASSWORD='<db-password>' \
+  -e SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver \
+  -e SPRING_JPA_DATABASE=postgresql \
+  -e SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect \
+  telegram-calendar-backend
+```
+
+##### 10. Check Container Status
+
+```bash
+docker ps
+docker logs -f telegram-calendar-backend
+```
+
+#### Docker Configuration
+
+The application runs in a Docker container with environment variables. All configuration is passed via environment variables, overriding `application.properties` values.
+
+**Environment Variables:**
+- `BOT_TOKEN` - Telegram bot token
+- `ASSEMBLYAI` - AssemblyAI API key
+- `OPENAIKEY` - OpenAI API key
+- `OPENAIURL` - OpenAI API endpoint
+- `ASSEMBLYAIURL` - AssemblyAI API endpoint
+- `MAINTENANCEMODE` - Maintenance mode flag
+- `USERONEID` - Telegram username for maintenance mode
+- `ADMINCHATID` - Administrator chat ID
+- `CALENDARID` - Google Calendar ID
+- `SPRING_DATASOURCE_*` - Database connection parameters
+
+#### CloudFormation Template Details
+
+The `infra/telegram-calendar-docker.yaml` template:
+- Creates EC2 instance (t3.micro by default, supports Free Tier)
+- Installs Docker and Git
+- Clones repository from GitHub
+- Builds Docker image
+- Runs container with all environment variables
+- Creates RDS PostgreSQL instance (db.t4g.micro, supports Free Tier)
+- Configures Security Groups for EC2 and RDS
+- Sets up IAM roles for EC2
+
+#### Troubleshooting
+
+**Container not starting:**
+```bash
+docker logs telegram-calendar-backend
+```
+
+**Database connection issues:**
+- Check Security Group allows port 5432 from EC2
+- Verify RDS endpoint and credentials
+
+**credentials.json not found:**
+- Ensure file is uploaded to `/home/ec2-user/app/src/main/resources/config/`
+- Rebuild Docker image after uploading
+
+**Stack creation fails:**
+- Check CloudFormation events: `aws cloudformation describe-stack-events --stack-name telegram-calendar-docker`
+- Verify all parameters are correct
+- Ensure instance types are available in your region (Free Tier eligible)
 
 ---
 
