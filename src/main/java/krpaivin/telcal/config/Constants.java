@@ -47,5 +47,6 @@ public final class Constants {
 
     public static final String DATE_TIME_PATTERN = "yyyy-MM-dd HH:mm";
     public static final String DATE_PATTERN = "dd.MM.yyyy";
+    public static final String DATE_PATTERN_DASH = "yyyy-MM-dd";
     public static final String YEAR_PATTERN = "yyyy";
 }

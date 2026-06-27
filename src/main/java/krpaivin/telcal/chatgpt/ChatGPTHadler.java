@@ -15,6 +15,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.stream.Collectors;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.springframework.stereotype.Service;
@@ -56,6 +57,157 @@ public class ChatGPTHadler {
     }
 
     /**
+     * Builds the system prompt for the ChatGPT API based on the request type.
+     *
+     * @param type   the type of request to determine the instructions sent to
+     *               ChatGPT.
+     * @param userId the ID of the user making the request.
+     * @return the system prompt for the ChatGPT API.
+     * @throws IOException if there is an error with the API connection or the
+     *                     request type is unknown.
+     */
+    private String buildSystemPrompt(TypeGPTRequest type, String userId) throws IOException {
+        return switch (type) {
+            case CREATING_EVENT -> getInstructionsForCreatingCalendar(userId);
+            case ANALYTICS -> getInstructionsForAnalytics();
+            case SEARCH -> getInstructionsForSearch();
+            case CREATING_EVENT_TEXT -> getInstructionsForCreatingCalendarFromText();
+            case ANALYTICS_TEXT -> getInstructionsForAnalyticsFromText();
+            case SEARCH_TEXT -> getInstructionsForSearchFromText();
+            default -> throw new IOException(Messages.UNKNOWN_REQUEST_GPT);
+        };
+    }
+
+    private String today() {
+        return LocalDateTime.now().format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN_DASH));
+    }
+
+    private String tomorrow() {
+        return LocalDateTime.now()
+                .plusDays(1)
+                .format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN_DASH));
+    }
+
+    private JSONObject buildRequestJson(String systemPrompt, String userPrompt) {
+
+        String modelName = Constants.GPT_MODEL;
+        boolean isNewModel = modelName.startsWith("gpt-5");
+
+        JSONObject jsonInput = new JSONObject();
+        jsonInput.put("model", modelName);
+        JSONArray messages = new JSONArray();
+
+        messages.put(new JSONObject().put("role", "system").put("content", systemPrompt));
+        messages.put(new JSONObject().put("role", "user").put("content", userPrompt));
+        jsonInput.put("messages", messages);
+
+        if (isNewModel) {
+            jsonInput.put("max_completion_tokens", 150);
+        } else {
+            jsonInput.put("temperature", 0.7);
+            jsonInput.put("max_tokens", 150);
+            jsonInput.put("top_p", 1.0);
+        }
+
+        return jsonInput;
+    }
+
+    private HttpURLConnection createConnection() throws IOException, URISyntaxException {
+        URL url = new URI(telegramProperties.getOpenAIURL()).toURL();
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("POST");
+        connection.setRequestProperty("Authorization", "Bearer " + telegramProperties.getOpenAIKey().trim());
+        connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+        connection.setDoOutput(true);
+
+        return connection;
+    }
+
+    private String readResponse(HttpURLConnection connection, int responseCode) throws IOException {
+
+        InputStream inputStream;
+
+        try {
+            // Try to get inputStream (for successful responses)
+            inputStream = connection.getInputStream();
+        } catch (IOException e) {
+            // If it is not possible to get inputStream, then it is an error - read from
+            // errorStream
+            inputStream = connection.getErrorStream();
+        }
+
+        // If errorStream is also null, then there is a problem with the connection
+        if (inputStream == null) {
+            throw new IOException("Failed to get response from OpenAI API. HTTP Code: " + responseCode);
+        }
+
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+            return reader.lines().collect(Collectors.joining());
+        }
+    }
+
+    private String parseError(String responseBody, int responseCode) {
+
+        try {
+            JSONObject errorJson = new JSONObject(responseBody);
+
+            if (errorJson.has("error")) {
+                JSONObject error = errorJson.getJSONObject("error");
+
+                return "HTTP "
+                        + responseCode
+                        + ": "
+                        + error.optString("message", responseBody)
+                        + " (type: "
+                        + error.optString("type", "unknown")
+                        + ")";
+            }
+
+        } catch (JSONException e) {
+            // Response is not valid JSON. Return raw response below.
+        }
+
+        return "HTTP " + responseCode + ": " + responseBody;
+    }
+
+    private String sendRequest(HttpURLConnection connection, JSONObject request) throws IOException {
+
+        try (OutputStream os = connection.getOutputStream()) {
+            byte[] input = request.toString().getBytes(StandardCharsets.UTF_8);
+            os.write( input, 0, input.length);
+        }
+
+        int responseCode = connection.getResponseCode();
+        String responseBody = readResponse(connection, responseCode);
+
+        if (responseCode != HttpURLConnection.HTTP_OK) {
+            throw new IOException(parseError(responseBody, responseCode));
+        }
+
+        return responseBody;
+    }
+
+    private String extractContent(String responseBody) {
+
+        JSONObject jsonObject = new JSONObject(responseBody);
+
+        return jsonObject.getJSONArray("choices")
+                .getJSONObject(0)
+                .getJSONObject("message")
+                .getString("content");
+    }
+
+    private void checkApiKey() {
+        String apiKey = telegramProperties.getOpenAIKey();
+
+            if (apiKey == null || apiKey.trim().isEmpty()) {
+                throw new IllegalArgumentException(
+                        "OpenAI API key is not configured. Check application.properties: openAIKey");
+            }
+    }
+
+    /**
      * Gets a response from ChatGPT for internal use, with specific processing based
      * on the request type.
      *
@@ -72,108 +224,20 @@ public class ChatGPTHadler {
     protected String getResponseFromChatGPT(String voiceText, TypeGPTRequest typeGPTRequest, String userId) {
         try {
             // Check if OpenAI API key is configured
-            String apiKey = telegramProperties.getOpenAIKey();
-            if (apiKey == null || apiKey.trim().isEmpty()) {
-                throw new IllegalArgumentException("OpenAI API key is not configured. Check application.properties: openAIKey");
-            }
+            checkApiKey();
+
+            String systemPrompt = buildSystemPrompt(typeGPTRequest, userId);
+            String userPrompt = voiceText;
 
             // Connect to ChatGPT API to get response
-            URL url = new URI(telegramProperties.getOpenAIURL()).toURL();
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("POST");
-            connection.setRequestProperty("Authorization", "Bearer " + apiKey.trim());
-            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-            connection.setDoOutput(true);
+            HttpURLConnection connection = createConnection();
 
-            String prompt = "";
-            if (typeGPTRequest == TypeGPTRequest.CREATING_EVENT) {
-                prompt = getInstructionsForCreatingCalendar(voiceText, userId);
-            } else if (typeGPTRequest == TypeGPTRequest.ANALYTICS) {
-                prompt = getInstructionsForAnalytics(voiceText);
-            } else if (typeGPTRequest == TypeGPTRequest.SEARCH) {
-                prompt = getInstructionsForSearch(voiceText);
-            } else if (typeGPTRequest == TypeGPTRequest.CREATING_EVENT_TEXT) {
-                prompt = getInstructionsForCreatingCalendarFromText(voiceText);
-            } else if (typeGPTRequest == TypeGPTRequest.ANALYTICS_TEXT) {
-                prompt = getInstructionsForAnalyticsFromText(voiceText);
-            } else if (typeGPTRequest == TypeGPTRequest.SEARCH_TEXT) {
-                prompt = getInstructionsForSearchFromText(voiceText);
-            } else {
-                throw new IOException(Messages.UNKNOWN_REQUEST_GPT);
-            }
-
-            String modelName = Constants.GPT_MODEL;
-            boolean isNewModel = modelName.startsWith("gpt-5");
-
-            String jsonInputString = "{\"model\": \"" + modelName + "\", " +
-                    "\"messages\": [{\"role\": \"user\", \"content\": \"" + prompt + "\"}], " +
-                    (isNewModel ? "\"max_completion_tokens\": 150}" : "\"temperature\": 0.7, \"max_tokens\": 150, \"top_p\": 1.0}");
+            JSONObject jsonInput = buildRequestJson(systemPrompt, userPrompt);
 
             // Get a response from ChatGPT
-            try (OutputStream os = connection.getOutputStream()) {
-                byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
-                os.write(input, 0, input.length);
-            }
+            String response = sendRequest(connection, jsonInput);
 
-            // Check response code before reading
-            int responseCode = connection.getResponseCode();
-            
-            // Read response (success or error)
-            StringBuilder response = new StringBuilder();
-            InputStream inputStream;
-            
-            try {
-                // Try to get inputStream (for successful responses)
-                inputStream = connection.getInputStream();
-            } catch (IOException e) {
-                // If it is not possible to get inputStream, then it is an error - read from errorStream
-                inputStream = connection.getErrorStream();
-            }
-                
-            // If errorStream is also null, then there is a problem with the connection
-            if (inputStream == null) {
-                throw new IOException("Failed to get response from OpenAI API. HTTP Code: " + responseCode);
-            }
-            
-            try (BufferedReader in = new BufferedReader(
-                    new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = in.readLine()) != null) {
-                    response.append(line);
-                }
-            }
-
-            String responseBody = response.toString();
-            
-            // If error response, throw exception with error message
-            if (responseCode != HttpURLConnection.HTTP_OK) {
-                // Try to parse JSON error for a more understandable message
-                String errorMessage;
-                try {
-                    JSONObject errorJson = new JSONObject(responseBody);
-                    if (errorJson.has("error")) {
-                        JSONObject error = errorJson.getJSONObject("error");
-                        errorMessage = "HTTP " + responseCode + ": " + 
-                                error.optString("message", responseBody) + 
-                                " (type: " + error.optString("type", "unknown") + ")";
-                    } else {
-                        errorMessage = "HTTP " + responseCode + ": " + responseBody;
-                    }
-                } catch (JSONException e) {
-                    errorMessage = "HTTP " + responseCode + ": " + responseBody;
-                }
-                throw new IOException(errorMessage);
-            }
-
-            // Process JSON response
-            String jsonResponse = response.toString();
-            JSONObject jsonObject = new JSONObject(jsonResponse);
-
-            // Extract text from the field message.content
-            return jsonObject.getJSONArray("choices")
-                    .getJSONObject(0)
-                    .getJSONObject("message")
-                    .getString("content");
+            return extractContent(response);
 
         } catch (JSONException e) {
             throw new JSONException(Messages.ERROR_JSON_GPT);
@@ -186,38 +250,155 @@ public class ChatGPTHadler {
     }
 
     /**
+     * Appends the role to the system prompt.
+     *
+     * @param sb   the StringBuilder to append the role to.
+     * @param role the role to append.
+     */
+    private void appendRole(StringBuilder sb, String role) {
+        sb.append("""
+                ROLE:
+
+                """)
+                .append(role)
+                .append("""
+
+                            Do not answer the user.
+                            Do not explain your reasoning.
+                            Return only the requested output format.
+
+                        """);
+    }
+
+    private void appendKeywordRules(StringBuilder sb) {
+        sb.append(
+                """
+                        KEYWORD RULES:
+
+                        Keyword may be missing.
+
+                        If the request explicitly contains the word 'keyword' (or the translated equivalent of word 'keyword' in the user's language),
+                        extract the text after word 'keyword'.
+
+                        """);
+    }
+
+    /**
      * Constructs instructions for ChatGPT to process search-related requests.
      *
-     * @param voiceText the input text containing search criteria.
      * @return a formatted instruction string for ChatGPT to perform the search.
      */
-    private String getInstructionsForSearch(String voiceText) {
-        LocalDateTime today = LocalDateTime.now();
+    private String getInstructionsForSearch() {
+        String currentDate = today();
         StringBuilder res = new StringBuilder();
 
-        res.append("Analyze the text and find 'Start Date', 'End Date', 'Keyword' and selection type. ")
-                .append("The period can be specified in free form. ")
-                .append("For example: last month, during the last year, last week, etc. ")
-                .append("The period specified in this way is counted from the current day equal to ")
-                .append(today.format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN))).append(". ")
-                .append("If the period is not specified or the all-time period is assumed, ")
-                .append("then 'Start Date' must be set equal to 01.01.1900. ")
-                .append("And set 'End Date' equal to 01.01.2100")
-                .append("The keyword comes after the word 'keyword' (if the text is in English). ")
-                .append("If the text is in any other language, the keyword will be after the keyword ")
-                .append("written in translation into that language. ")
-                .append("Keyword may be missing. ")
-                .append("It may be specified that either the first element found, or the last one, ")
-                .append("or all found elements should be selected.")
-                .append("If need search first element Search type = first, if need search last element Search type = last, ")
-                .append("in other cases Search type = all.")
-                .append("If there is a keyword, then answer strictly in the format: ")
-                .append("'Start date: yyyy-MM-dd HH:mm / End date: yyyy-MM-dd HH:mm / Search type = / Keyword = ', ")
-                .append("where the first date is the beginning of the period and the second date is the end of the period. ")
-                .append("If there is no keyword, then answer strictly in the format: ")
-                .append("'Start date: yyyy-MM-dd HH:mm / End date: yyyy-MM-dd HH:mm / Search type = ', ")
-                .append("where the first date is the beginning of the period and the second date is the end of the period. ")
-                .append("Here is the original text: ").append(voiceText);
+        appendRole(res, "You are an information extraction engine.");
+
+        res.append("""
+                    TASK:
+                    Extract these fields:
+                    - Start Date
+                    - End Date
+                    - Search Type
+                    - Keyword (optional)
+
+                """);
+
+        res.append("""
+                DATE RULES:
+
+                Dates can be specified in natural language.
+
+                Examples:
+                - today
+                - yesterday
+                - last week
+                - last month
+                - last year
+                - during the last 3 months
+
+                Calculate all relative dates from:
+                """)
+                .append(currentDate)
+                .append("""
+
+                        If the period is not specified, use:
+
+                        Start date: 1900-01-01 00:00
+                        End date: 2100-01-01 00:00
+
+                        """)
+                .append("""
+                        """);
+
+        appendKeywordRules(res);
+
+        res.append("""
+                    SEARCH TYPE RULES:
+
+                    If user wants the first matching item: Search type = first
+                    If user wants the last matching item: Search type = last
+                    Otherwise: Search type = all
+
+                """);
+
+        res.append("""
+                    OUTPUT RULES:
+
+                    Output only the result.
+                    Do not add explanations.
+                    Do not use markdown.
+
+
+                    If Keyword exists:
+
+                    Start date: yyyy-MM-dd HH:mm /
+                    End date: yyyy-MM-dd HH:mm /
+                    Search type = first|last|all /
+                    Keyword = text
+
+
+                    If Keyword does not exist:
+
+                    Start date: yyyy-MM-dd HH:mm /
+                    End date: yyyy-MM-dd HH:mm /
+                    Search type = first|last|all
+
+                """);
+
+        res.append("""
+                    EXAMPLES:
+
+                    Input:
+                    Find my last dentist appointment
+
+                    Output:
+                    Start date: 1900-01-01 00:00 /
+                    End date: 2100-01-01 00:00 /
+                    Search type = last /
+                    Keyword = dentist
+
+
+                    Input:
+                    Show meetings from last month
+
+                    Output:
+                    Start date: calculated date /
+                    End date: calculated date /
+                    Search type = all
+
+
+                    Input:
+                    Find first event keyword Java
+
+                    Output:
+                    Start date: 1900-01-01 00:00 /
+                    End date: 2100-01-01 00:00 /
+                    Search type = first /
+                    Keyword = Java
+
+                """);
+
         return res.toString();
     }
 
@@ -225,113 +406,262 @@ public class ChatGPTHadler {
      * Constructs instructions for ChatGPT to perform analytics based on the given
      * text.
      *
-     * @param voiceText the input text containing analytics criteria.
      * @return a formatted instruction string for ChatGPT to perform analytics.
      */
-    private String getInstructionsForAnalytics(String voiceText) {
+    private String getInstructionsForAnalytics() {
         LocalDateTime today = LocalDateTime.now();
+        String currentDate = today();
+        String endDate = today.with(LocalTime.MAX).format(DateTimeFormatter.ofPattern(Constants.DATE_TIME_PATTERN));
         StringBuilder res = new StringBuilder();
 
-        res.append("Analyze the text and find 'Start Date', 'End Date' and the 'Keyword'. ")
-                .append("The period can be specified in free form. ")
-                .append("For example: last month, during the last year, last week, etc. ")
-                .append("The period specified in this way is counted from the current day equal to ")
-                .append(today.format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN))).append(". ")
-                .append("If the period is not specified or the all-time period is assumed, ")
-                .append("then 'Start Date' must be set equal to 01.01.1900. ")
-                .append("And set 'End Date' equal to ")
-                .append(today.with(LocalTime.MAX).format(DateTimeFormatter.ofPattern(Constants.DATE_TIME_PATTERN)))
-                .append(". ")
-                .append("The keyword comes after the word 'keyword' (if the text is in English). ")
-                .append("If the text is in any other language, the keyword will be after the keyword ")
-                .append("written in translation into that language. ")
-                .append("Keyword may be missing. ")
-                .append("If there is a keyword, then answer strictly in the format: ")
-                .append("'Start date: yyyy-MM-dd HH:mm / End date: yyyy-MM-dd HH:mm / Keyword =', ")
-                .append("where the first date is the beginning of the period and the second date is the end of the period. ")
-                .append("If there is no keyword, then answer strictly in the format: ")
-                .append("'Start date: yyyy-MM-dd HH:mm / End date: yyyy-MM-dd HH:mm', ")
-                .append("where the first date is the beginning of the period and the second date is the end of the period. ")
-                .append("Here is the original text: ").append(voiceText);
+        appendRole(res,
+                "You are an information extraction engine. Your task is to extract analytics parameters from a user request.");
+
+        res.append("""
+                    TASK:
+                    Extract:
+
+                    - Start Date
+                    - End Date
+                    - Keyword (optional)
+
+                """);
+
+        res.append("""
+                DATE RULES:
+
+                Dates can be specified in natural language.
+
+                Examples:
+                today
+                yesterday
+                last week
+                last month
+                last year
+
+                Calculate relative dates from:
+                """)
+                .append(currentDate)
+                .append("""
+                        If no period is specified, assume all available history.
+
+                        Use:
+                        Start date: 1900-01-01 00:00
+                        End date:
+                        """)
+                .append(endDate)
+                .append("""
+
+                        """);
+
+        appendKeywordRules(res);
+
+        res.append("""
+                    OUTPUT FORMAT:
+
+                    Return only result.
+                    No explanations.
+                    No markdown.
+
+
+                    If keyword exists:
+                    Start date: yyyy-MM-dd HH:mm / End date: yyyy-MM-dd HH:mm / Keyword = text
+
+                    If keyword does not exist:
+                    Start date: yyyy-MM-dd HH:mm / End date: yyyy-MM-dd HH:mm
+
+                """);
+
+        res.append("""
+                    EXAMPLES:
+
+                    Input:
+                    Analytics for last month keyword work
+
+                    Output:
+                    Start date: calculated date / End date: calculated date / Keyword = work
+
+
+                    Input:
+                    Show statistics for this year
+
+                    Output:
+                    Start date: calculated date / End date: calculated date
+
+                """);
+
         return res.toString();
+    }
+
+    private void appendAllowedKeywords(StringBuilder sb, String keywords, String compoundKeywords) {
+
+        if ((keywords != null && !keywords.isEmpty()) || (compoundKeywords != null && !compoundKeywords.isEmpty())) {
+
+            sb.append("""
+                        KEYWORD RULES:
+
+                        Allowed keywords:
+
+                    """);
+
+            if (keywords != null && !keywords.isEmpty()) {
+                sb.append(keywords).append("\n");
+            }
+
+            if (compoundKeywords != null && !compoundKeywords.isEmpty()) {
+                sb.append(compoundKeywords).append("\n");
+            }
+
+            if (compoundKeywords != null && !compoundKeywords.isEmpty()) {
+                String[] compounds = compoundKeywords.split(",");
+
+                for (String compound : compounds) {
+                    sb.append("Words \"").append(compound).append("\" together mean one keyword.\n");
+                }
+            }
+
+            sb.append("\n");
+        }
+
     }
 
     /**
      * Constructs instructions for ChatGPT to create a calendar event from the
      * provided text and user-specific data.
      *
-     * @param voiceText the input text describing the event.
-     * @param userId    the ID of the user for accessing personalized data.
+     * @param userId the ID of the user for accessing personalized data.
      * @return a formatted instruction string for ChatGPT to create a calendar
      *         event.
      */
-    private String getInstructionsForCreatingCalendar(String voiceText, String userId) {
+    private String getInstructionsForCreatingCalendar(String userId) {
 
         LocalDateTime today = LocalDateTime.now();
-        String todayStr = today.format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
-        String nextDayStr = today.plusDays(1).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
-        // String todayNextYearStr =
-        // today.plusYears(1).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
+        String todayStr = today();
+        String tomorrowStr = tomorrow();
         String currentYear = today.format(DateTimeFormatter.ofPattern(Constants.YEAR_PATTERN));
         String nextYear = today.plusYears(1).format(DateTimeFormatter.ofPattern(Constants.YEAR_PATTERN));
         String keywords = userAuthData.getKeywords(userId);
         String defaultKeyword = userAuthData.getDefaultKeywords(userId);
         String compoundKeywords = userAuthData.getCompoundKeywords(userId);
-        boolean keywordExists = false;
         StringBuilder res = new StringBuilder();
 
-        res.append("Analyze the text and find 'date', 'start time', 'duration', ");
-        if ((keywords != null && !"".equals(keywords))
-                || (compoundKeywords != null && !"".equals(compoundKeywords))) {
-            res.append(" 'keyword', ");
-            keywordExists = true;
-        }
-        res.append(" 'description'. ")
-                .append(". In the source text, the date can be specified in free form. ")
-                .append("For example: tomorrow, tomorrow at eight, the day after tomorrow, some day this week and the next, etc. ")
-                .append("The date specified in this way is counted from the current day equal to ")
-                .append(todayStr).append(" and time from the source text. ")
-                .append("If the year is not specified in the source text and the date you specify may be greater than ")
-                .append(todayStr).append(" and less than 01.01.").append(nextYear).append(" , then the ")
-                .append(currentYear).append(" is set. Otherwise, the year ").append(nextYear).append(" is set. ")
-                .append("The month can be specified as a number or a word. ")
-                .append("If the date is not explicitly set in the past, then the date you set must be greater then  ")
+        appendRole(res, "You are a calendar event extraction engine. Extract structured event data from user text.");
+
+        res.append("""
+                    TASK:
+
+                    Extract:
+
+                    - Date
+                    - Start time
+                    - Duration
+                    - Keyword (optional)
+                    - Description
+
+                """);
+
+        res.append("""
+                DATE RULES:
+
+                Date can be written in natural language.
+
+                Examples:
+                tomorrow
+                tomorrow at eight
+                next week
+                next Monday
+
+                Calculate relative dates from:
+                """)
                 .append(todayStr)
-                .append("If the date is missing or could not be determined, then it is necessary to set the date equal to ")
-                .append(nextDayStr).append(" and time from the source text. ")
-                .append("In the source text, the time can be specified in a free form. ")
-                .append("For example: at eight, at ten in the evening, at nineteen zero zero, 10, etc.")
-                .append("If you could not determine the time in the source text, then set the time to 09:00. ")
-                .append("Duration is the number of minutes that indicates how long the event will last. ")
-                .append("If a start and end time are specified, the duration is equal to the difference between them. ")
-                .append("If the duration is missing, it should be equal to 60 minutes. ");
-        if (keywordExists) {
-            res.append("The following keywords are possible: ");
+                .append("""
+                        If year is missing:
+
+                        Use current year:
+                        """)
+                .append(currentYear)
+                .append("""
+                            If date is already passed, use next year:
+                        """)
+                .append(nextYear)
+                .append("""
+                        If date is missing: use tomorrow:
+                        """)
+                .append(tomorrowStr)
+                .append("""
+
+                        """);
+
+        res.append("""
+                    TIME RULES:
+
+                    Time can be written in natural language.
+
+                    Examples:
+                    at eight
+                    at 19:00
+                    at ten in the evening
+
+                    If time cannot be determined: use 09:00
+
+                """);
+
+        res.append("""
+                    DURATION RULES:
+
+                    Duration is measured in minutes.
+
+                    If start and end time exist, calculate duration.
+                    If duration is missing: use 60 minutes.
+
+                """);
+
+        appendAllowedKeywords(res, keywords, compoundKeywords);
+
+        if (defaultKeyword != null && !defaultKeyword.isEmpty()) {
+            res.append("""
+                    If keyword is missing, use default keyword:
+                    """)
+                    .append(defaultKeyword)
+                    .append("\n\n");
         }
-        if (keywords != null && !"".equals(keywords)) {
-            res.append(keywords).append(", ");
-        }
-        if (compoundKeywords != null && !"".equals(compoundKeywords)) {
-            res.append(compoundKeywords).append(". ");
-        }
-        if (compoundKeywords != null && !"".equals(compoundKeywords)) {
-            String[] arrayString = compoundKeywords.split(",");
-            for (String str : arrayString) {
-                res.append("If the original text contains together the words ").append(str).append(", ")
-                        .append("then consider it one keyword. ");
-            }
-        }
-        if (defaultKeyword != null && !"".equals(defaultKeyword)) {
-            res.append("If there is no keyword, then you need to install keyword equals ")
-                    .append(defaultKeyword).append(". ");
-        }
-        res.append(". 'Description' is the remaining text without date and duration. ")
-                .append("If there is a keyword in the source text, the answer you provide ")
-                .append("should be in this format: 'yyyy-MM-dd HH:mm / Duration=mm / Keyword. Description'.")
-                .append("If there is no keyword in the source text, the answer you provide ")
-                .append("should be in this format: 'yyyy-MM-dd HH:mm / Duration=mm / Description'. ")
-                .append("There is no need to display the word 'Description'. ")
-                .append("Here is the source text: ").append(voiceText);
+
+        res.append("""
+                    DESCRIPTION RULES:
+
+                    Description is remaining text after removing date, time and duration.
+
+                """);
+
+        res.append("""
+                    OUTPUT FORMAT:
+
+                    If keyword exists:
+                    yyyy-MM-dd HH:mm / Duration=minutes / Keyword. Description
+
+
+                    If keyword does not exist:
+                    yyyy-MM-dd HH:mm / Duration=minutes / Description
+
+                    Do not output the word "Description".
+
+                """);
+
+        res.append("""
+                EXAMPLE:
+
+                Input:
+                Tomorrow at 10 meeting keyword work
+
+                Output:
+
+                """)
+                .append(tomorrowStr)
+                .append("""
+                        10:00 /  Duration=60 / work. meeting
+
+                        """);
+
         return res.toString();
     }
 
@@ -339,19 +669,61 @@ public class ChatGPTHadler {
      * Generates a string containing instructions for analyzing and formatting a
      * source text to create a calendar entry.
      *
-     * @param text the source text to analyze
      * @return a formatted string with instructions for processing the text
      */
-    private String getInstructionsForCreatingCalendarFromText(String text) {
+    private String getInstructionsForCreatingCalendarFromText() {
+        String tomorrowStr = tomorrow();
         StringBuilder res = new StringBuilder();
-        res.append("Analyze the source text. Find the date, time, and description. ")
-                .append("The date and time can be specified in a free format. ")
-                .append("The description is the rest of the text. Format the source text ")
-                .append("and output it in the following format: yyyy-MM-dd HH:mm Description. ")
-                .append("If the date is not specified in the source text, output: Error. Date is not specified. ")
-                .append("If the time is not specified in the source text, output: Error. Time is not specified. ")
-                .append("If the description is missing in the source text, output: Error. Description is not specified. ")
-                .append("Here is the source text: " + text);
+
+        appendRole(res, "You are a calendar text formatter. Convert user text into a calendar entry.");
+
+        res.append("""
+                    TASK:
+
+                    Extract:
+
+                    - Date
+                    - Time
+                    - Description
+
+                """);
+
+        res.append("""
+                    RULES:
+
+                    Date, time and description must exist in source text.
+
+                    If date is missing:
+                    Output: Error. Date is not specified.
+
+                    If time is missing:
+                    Output: Error. Time is not specified.
+
+                    If description is missing:
+                    Output: Error. Description is not specified.
+
+                """);
+
+        res.append("""
+                    OUTPUT FORMAT:
+
+                    yyyy-MM-dd HH:mm Description
+
+                """);
+
+        res.append("""
+                EXAMPLE:
+
+                Input:
+                Meeting tomorrow at 10 discuss project
+
+                Output:""")
+                .append(tomorrowStr)
+                .append("""
+                        10:00 discuss project
+
+                        """);
+
         return res.toString();
     }
 
@@ -359,16 +731,75 @@ public class ChatGPTHadler {
      * Generates a string containing instructions for analyzing and formatting a
      * source text for analytics.
      *
-     * @param text the source text to analyze
      * @return a formatted string with instructions for processing the text
      */
-    private String getInstructionsForAnalyticsFromText(String text) {
+    private String getInstructionsForAnalyticsFromText() {
         StringBuilder res = new StringBuilder();
-        res.append("Analyze the source text. Find the start date, end date, and description. ")
-                .append("Dates can be specified in a free format. The description is the rest of the text. ")
-                .append("Format the source text and output it in the following format: yyyy-MM-dd yyyy-MM-dd Description. ")
-                .append("The description may be missing. ")
-                .append("Here is the source text: " + text);
+
+        appendRole(res,
+                "You are an analytics query formatting engine. Convert user text into structured analytics parameters.");
+
+        res.append("""
+                    TASK:
+
+                    Extract:
+
+                    - Start Date
+                    - End Date
+                    - Description
+
+                """);
+
+        res.append("""
+                DATE RULES:
+
+                Dates may be specified in natural language.
+
+                Examples:
+
+                - today
+                - yesterday
+                - last week
+                - last month
+                - next Monday
+
+                Convert all dates to:
+
+                yyyy-MM-dd
+
+                """);
+
+        res.append("""
+                    DESCRIPTION RULES:
+
+                    Description is the remaining text after removing all detected dates.
+                    Description may be empty.
+
+                """);
+
+        res.append("""
+                    OUTPUT FORMAT:
+
+                    Output only:
+
+                    yyyy-MM-dd yyyy-MM-dd Description
+
+                    Do not output any explanations.
+                    Do not use markdown.
+
+                """);
+
+        res.append("""
+                    EXAMPLE:
+
+                    Input:
+                    Sales statistics for last month
+
+                    Output:
+                    yyyy-MM-dd yyyy-MM-dd Sales statistics
+
+                """);
+
         return res.toString();
     }
 
@@ -379,15 +810,69 @@ public class ChatGPTHadler {
      * @param text the source text to analyze
      * @return a formatted string with instructions for processing the text
      */
-    private String getInstructionsForSearchFromText(String text) {
+    private String getInstructionsForSearchFromText() {
         StringBuilder res = new StringBuilder();
-        res.append("Analyze the source text. Find the start date, end date, search type, and description. ")
-                .append("Dates can be specified in a free format. The search type can take ")
-                .append("the following values: first/last/all. Search type may be missing. ")
-                .append("Description - arbitrary text. Description may be missing. ")
-                .append("Format the source text and output it in the following ")
-                .append("format: yyyy-MM-dd / yyyy-MM-dd / Description / Search type.")
-                .append("Here is the source text: " + text);
+
+        appendRole(res, "You are a text formatting engine. Convert user text into structured search parameters.");
+
+        res.append("""
+                    TASK:
+
+                    Extract:
+
+                    - Start Date
+                    - End Date
+                    - Search Type
+                    - Description
+
+                """);
+
+        res.append("""
+                    SEARCH TYPE RULES:
+
+                    first:
+                    if user wants first item
+
+                    last:
+                    if user wants last item
+
+                    all:
+                    otherwise
+
+                    If search type is missing, use all.
+
+                """);
+
+        res.append("""
+                    DESCRIPTION RULES:
+
+                    Description is the remaining text after removing dates and search commands.
+
+                    Description may be empty.
+
+                """);
+
+        res.append("""
+                    OUTPUT FORMAT:
+
+                    Output only:
+
+                    yyyy-MM-dd HH:mm / yyyy-MM-dd HH:mm / Description / Search type
+
+                """);
+
+        res.append("""
+                    EXAMPLE:
+
+                    Input:
+                    Find last meeting with John
+
+                    Output:
+
+                    1900-01-01 00:00 / 2100-01-01 00:00 / John meeting / last
+
+                """);
+
         return res.toString();
     }
 
